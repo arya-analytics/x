@@ -1,8 +1,8 @@
 package queue_test
 
 import (
-	"github.com/arya-analytics/cesium/shut"
 	"github.com/arya-analytics/x/queue"
+	"github.com/arya-analytics/x/shutdown"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
@@ -13,13 +13,13 @@ var _ = Describe("Debounce", func() {
 	var (
 		req chan []int
 		res chan []int
-		s   shut.Shutdown
+		s   shutdown.Shutdown
 		d   *queue.Debounce[int]
 	)
 	BeforeEach(func() {
 		req = make(chan []int)
 		res = make(chan []int, 100)
-		s = shut.New()
+		s = shutdown.New()
 		d = &queue.Debounce[int]{
 			In:  req,
 			Out: res,
