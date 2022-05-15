@@ -2,7 +2,7 @@ package errutil_test
 
 import (
 	"errors"
-	"github.com/arya-analytics/cesium/internal/errutil"
+	"github.com/arya-analytics/x/util/errutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
