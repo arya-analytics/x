@@ -1,7 +1,7 @@
 package kfs
 
 import (
-	"github.com/arya-analytics/cesium/x/lock"
+	"github.com/arya-analytics/x/lock"
 	"time"
 )
 

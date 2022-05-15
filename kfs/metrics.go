@@ -1,7 +1,7 @@
 package kfs
 
 import (
-	"github.com/arya-analytics/cesium/alamos"
+	"github.com/arya-analytics/x/alamos"
 )
 
 type Metrics struct {

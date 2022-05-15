@@ -1,7 +1,8 @@
 package kfs_test
 
 import (
-	"github.com/arya-analytics/cesium/kfs"
+	"github.com/arya-analytics/x/kfs"
+	"github.com/arya-analytics/x/shutdown"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"time"
@@ -24,7 +25,7 @@ var _ = Describe("sync", func() {
 		fs.Release(3)
 		time.Sleep(5 * time.Millisecond)
 		Expect(fs.Files()[1].Age() > 5*time.Millisecond).To(BeTrue())
-		s := shut.New()
+		s := shutdown.New()
 		sync := &kfs.Sync[int]{
 			FS:       fs,
 			Interval: 2 * time.Millisecond,
@@ -57,7 +58,7 @@ var _ = Describe("sync", func() {
 		fs.Release(3)
 		time.Sleep(5 * time.Millisecond)
 		Expect(fs.Files()[1].Age() > 5*time.Millisecond).To(BeTrue())
-		shutter := shut.New()
+		shutter := shutdown.New()
 		sync := &kfs.Sync[int]{
 			FS:       fs,
 			Interval: 5 * time.Millisecond,

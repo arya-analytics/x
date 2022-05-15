@@ -3,7 +3,7 @@ module github.com/arya-analytics/x
 go 1.18
 
 require (
-	github.com/arya-analytics/cesium v0.0.0-20220513073712-cd3bf7930d45
+	github.com/arya-analytics/cesium v0.0.0-20220515044259-b3b94db1df9f
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/spf13/afero v1.8.2

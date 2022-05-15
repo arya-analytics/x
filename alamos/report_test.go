@@ -2,7 +2,7 @@ package alamos_test
 
 import (
 	"encoding/json"
-	"github.com/arya-analytics/cesium/alamos"
+	"github.com/arya-analytics/x/alamos"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"io/ioutil"

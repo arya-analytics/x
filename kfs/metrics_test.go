@@ -1,8 +1,8 @@
 package kfs_test
 
 import (
-	"github.com/arya-analytics/cesium/alamos"
-	"github.com/arya-analytics/cesium/kfs"
+	"github.com/arya-analytics/x/alamos"
+	"github.com/arya-analytics/x/kfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
