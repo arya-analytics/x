@@ -46,7 +46,7 @@ func (s *Sync[T]) Start() <-chan error {
 
 func (s *Sync[T]) sync() error {
 	c := errutil.NewCatchSimple(errutil.WithAggregation())
-	for _, v := range s.FS.Files() {
+	for _, v := range s.FS.OpenFiles() {
 		if v.Age() > s.MaxAge && v.TryAcquire() {
 			c.Exec(v.Sync)
 			v.Release()
@@ -57,7 +57,7 @@ func (s *Sync[T]) sync() error {
 
 func (s *Sync[T]) forceSync() error {
 	c := errutil.NewCatchSimple(errutil.WithAggregation())
-	for _, v := range s.FS.Files() {
+	for _, v := range s.FS.OpenFiles() {
 		v.Acquire()
 		c.Exec(v.Sync)
 		v.Release()

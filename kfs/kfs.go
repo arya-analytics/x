@@ -30,8 +30,9 @@ type FS[T comparable] interface {
 	RemoveAll() error
 	// Metrics returns a snapshot of the current Metrics for the file system.
 	Metrics() Metrics
-	// Files returns a snapshot of the current files in the FS.
-	Files() map[T]File[T]
+	// OpenFiles returns a map of the open files in the FS. NOTE: this is not a copy, and the returned
+	// map is not safe to modify.
+	OpenFiles() map[T]File[T]
 }
 
 // File is a file in the FS. It implements:
@@ -204,8 +205,8 @@ func (fs *defaultFS[T]) Metrics() Metrics {
 	return fs.metrics
 }
 
-// Files implements FS. Note: does not return a copy. Do not modify the returned map.
-func (fs *defaultFS[T]) Files() map[T]File[T] {
+// OpenFiles implements FS. Note: does not return a copy. Do not modify the returned map.
+func (fs *defaultFS[T]) OpenFiles() map[T]File[T] {
 	return fs.entries
 }
 

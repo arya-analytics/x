@@ -24,7 +24,7 @@ var _ = Describe("sync", func() {
 		fs.Release(2)
 		fs.Release(3)
 		time.Sleep(5 * time.Millisecond)
-		Expect(fs.Files()[1].Age() > 5*time.Millisecond).To(BeTrue())
+		Expect(fs.OpenFiles()[1].Age() > 5*time.Millisecond).To(BeTrue())
 		s := shutdown.New()
 		sync := &kfs.Sync[int]{
 			FS:       fs,
@@ -38,7 +38,7 @@ var _ = Describe("sync", func() {
 			Expect(<-errs).ToNot(HaveOccurred())
 		}()
 		time.Sleep(6 * time.Millisecond)
-		fOne := fs.Files()[1]
+		fOne := fs.OpenFiles()[1]
 		Expect(fOne.Age() < 7*time.Millisecond).To(BeTrue())
 		Expect(s.Shutdown()).To(Succeed())
 	})
@@ -57,7 +57,7 @@ var _ = Describe("sync", func() {
 		fs.Release(2)
 		fs.Release(3)
 		time.Sleep(5 * time.Millisecond)
-		Expect(fs.Files()[1].Age() > 5*time.Millisecond).To(BeTrue())
+		Expect(fs.OpenFiles()[1].Age() > 5*time.Millisecond).To(BeTrue())
 		shutter := shutdown.New()
 		sync := &kfs.Sync[int]{
 			FS:       fs,
@@ -72,7 +72,7 @@ var _ = Describe("sync", func() {
 		}()
 		time.Sleep(15 * time.Millisecond)
 		Expect(shutter.Shutdown()).To(Succeed())
-		fOne := fs.Files()[1]
+		fOne := fs.OpenFiles()[1]
 		Expect(fOne.Age() < 3*time.Millisecond).To(BeTrue())
 	})
 
