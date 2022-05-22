@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/arya-analytics/x/address"
-	transport "github.com/arya-analytics/x/transport"
+	"github.com/arya-analytics/x/transport"
 	"sync"
 )
 

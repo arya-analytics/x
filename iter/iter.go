@@ -1,6 +1,6 @@
 package iter
 
-func Slice[T any](values []T) func() T {
+func InfiniteSlice[T any](values []T) func() T {
 	i := 0
 	return func() (val T) {
 		val = values[i]

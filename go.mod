@@ -6,7 +6,6 @@ require (
 	github.com/cockroachdb/pebble v0.0.0-20220513193540-b8c9a560bed5
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
-	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/afero v1.8.2
 	go.uber.org/zap v1.21.0
 )

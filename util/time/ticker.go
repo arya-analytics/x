@@ -9,6 +9,10 @@ type ScaledTicker struct {
 	stop  chan struct{}
 }
 
+func (s *ScaledTicker) Stop() {
+	close(s.stop)
+}
+
 func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
 	c := make(chan time.Duration)
 	s := make(chan struct{})
