@@ -21,8 +21,9 @@ type Closer interface {
 }
 
 type KV interface {
+	Writer
 	Reader
-	Close() error
+	Closer
 }
 
 type IteratorEngine interface {

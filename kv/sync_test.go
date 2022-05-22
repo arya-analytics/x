@@ -23,7 +23,7 @@ func (f *flushLoader) Load(r io.Reader) error {
 	return binary.Read(r, &f.bytes)
 }
 
-var _ = Describe("Sync", Ordered, func() {
+var _ = Describe("SendSync", Ordered, func() {
 	var (
 		kve kv.KV
 	)

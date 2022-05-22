@@ -1,8 +1,8 @@
 package alamos
 
 import (
+	"github.com/arya-analytics/x/types"
 	"sync"
-	"time"
 )
 
 // Metric is a container for storing measured values.
@@ -46,7 +46,7 @@ func (b defaultBaseMetric) Report() map[string]interface{} {
 
 // |||||| GAUGE ||||||
 
-type gauge[T Numeric] struct {
+type gauge[T types.Numeric] struct {
 	baseMetric
 	mu    sync.Mutex
 	count int
@@ -55,14 +55,9 @@ type gauge[T Numeric] struct {
 	max   T
 }
 
-// Numeric represents a generic numeric value.
-type Numeric interface {
-	int | float64 | float32 | int64 | int32 | int16 | int8 | uint64 | uint32 | uint16 | uint8 | time.Duration
-}
-
 // NewGauge creates a new gauge metric. A gauge records the sum of all recorded values as well as
 // the number of times Record was called.
-func NewGauge[T Numeric](exp Experiment, key string) Metric[T] {
+func NewGauge[T types.Numeric](exp Experiment, key string) Metric[T] {
 	if m := emptyMetric[T](exp, key); m != nil {
 		return m
 	}

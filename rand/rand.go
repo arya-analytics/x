@@ -29,6 +29,15 @@ func MapElem[K comparable, V any](m map[K]V) (K, V) {
 	return k, m[k]
 }
 
+func MapSub[K comparable, V any](m map[K]V, n int) map[K]V {
+	om := make(map[K]V)
+	for len(om) < n {
+		k, v := MapElem[K, V](m)
+		om[k] = v
+	}
+	return om
+}
+
 func Elem[V any](options ...V) V {
 	return Slice[V](options)
 }
