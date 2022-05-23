@@ -29,7 +29,7 @@ type Network[
 	RES transport.Response] struct {
 	mu      sync.Mutex
 	Entries []NetworkEntry[REQ, RES]
-	routes  map[address.Address]*Unary[REQ, RES]
+	Routes  map[address.Address]*Unary[REQ, RES]
 }
 
 type NetworkEntry[REQ transport.Request, RES transport.Response] struct {
@@ -41,15 +41,15 @@ type NetworkEntry[REQ transport.Request, RES transport.Response] struct {
 
 func (n *Network[REQ, RES]) Route(addr address.Address) *Unary[REQ, RES] {
 	if addr == "" {
-		addr = address.Address(fmt.Sprintf("localhost:%v", len(n.routes)))
+		addr = address.Address(fmt.Sprintf("localhost:%v", len(n.Routes)))
 	}
 	t := &Unary[REQ, RES]{Address: addr, Network: n}
-	n.routes[addr] = t
+	n.Routes[addr] = t
 	return t
 }
 
 func (n *Network[REQ, RES]) Send(ctx context.Context, addr address.Address, req REQ) (RES, error) {
-	res, err := n.routes[addr].Handler(ctx, req)
+	res, err := n.Routes[addr].Handler(ctx, req)
 	n.appendEntry(addr, req, res, err)
 	return res, err
 }
@@ -61,5 +61,5 @@ func (n *Network[REQ, RES]) appendEntry(addr address.Address, req REQ, res RES, 
 }
 
 func NewNetwork[REQ transport.Request, RES transport.Response]() *Network[REQ, RES] {
-	return &Network[REQ, RES]{routes: make(map[address.Address]*Unary[REQ, RES])}
+	return &Network[REQ, RES]{Routes: make(map[address.Address]*Unary[REQ, RES])}
 }

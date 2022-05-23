@@ -1,8 +1,12 @@
 package observe
 
-type Observer[T any] interface {
+type Observable[T any] interface {
 	Subscribe(s Subscriber[T])
 	Unsubscribe(s Subscriber[T])
+}
+
+type Observer[T any] interface {
+	Observable[T]
 	Notify(T)
 }
 

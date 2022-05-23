@@ -1,6 +1,12 @@
 package kv
 
+import "github.com/cockroachdb/pebble"
+
 // |||||| ENGINE ||||||
+
+var (
+	ErrNotFound = pebble.ErrNotFound
+)
 
 // Reader is a readable key-value store.
 type Reader interface {
