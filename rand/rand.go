@@ -2,9 +2,11 @@ package rand
 
 import (
 	"math/rand"
+	"time"
 )
 
 func MapKey[K comparable, V any](m map[K]V) (key K) {
+	rand.Seed(time.Now().UnixNano())
 	l := len(m)
 	if l == 0 {
 		return key

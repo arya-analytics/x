@@ -30,12 +30,12 @@ func New[S State](copy func(S) S) Store[S] {
 func (c *core[S]) SetState(state S) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.state = c.copy(state)
+	c.state = state
 }
 
 func (c *core[S]) GetState() S {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.copy(c.state)
 }
 
@@ -45,10 +45,7 @@ type observable[S State] struct {
 }
 
 func NewObservable[S State](copy func(S) S) Observable[S] {
-	return &observable[S]{
-		Store:    &core[S]{copy: copy},
-		Observer: observe.New[S](),
-	}
+	return &observable[S]{Store: &core[S]{copy: copy}, Observer: observe.New[S]()}
 }
 
 func (o *observable[S]) SetState(state S) {

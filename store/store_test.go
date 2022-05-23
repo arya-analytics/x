@@ -27,7 +27,7 @@ func (sub *subscriber) Next(s state) {
 }
 
 var _ = Describe("Store", func() {
-	Describe("Core", func() {
+	Describe("core", func() {
 		It("Should initialize a basic store correctly", func() {
 			s := store.New(copyState)
 			state := s.GetState()
