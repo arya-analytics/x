@@ -14,6 +14,7 @@ type Shutdown interface {
 	Routines() map[string]int
 	NumRoutines() int
 	Shutdown() error
+	ShutdownAfter(d time.Duration) error
 }
 
 func New(opts ...Option) Shutdown {
@@ -66,6 +67,11 @@ o:
 		}
 	}
 	return nil
+}
+
+func (s *base) ShutdownAfter(d time.Duration) error {
+	time.Sleep(d)
+	return s.Shutdown()
 }
 
 func (s *base) Routines() map[string]int {
