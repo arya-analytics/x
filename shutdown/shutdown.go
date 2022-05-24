@@ -21,10 +21,9 @@ type Shutdown interface {
 }
 
 func New(opts ...Option) Shutdown {
-	opt := newOptions(opts...)
 	return &base{
 		signal:   make(chan Signal),
-		opts:     opt,
+		opts:     newOptions(opts...),
 		routines: make(map[string]int),
 		errors:   make(chan error, 10),
 	}
