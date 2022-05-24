@@ -18,14 +18,6 @@ func copyState(s state) state {
 	return s
 }
 
-type subscriber struct {
-	state state
-}
-
-func (sub *subscriber) Next(s state) {
-	sub.state = s
-}
-
 var _ = Describe("Store", func() {
 	Describe("core", func() {
 		It("Should initialize a basic store correctly", func() {
@@ -36,11 +28,11 @@ var _ = Describe("Store", func() {
 	})
 	Describe("Observable", func() {
 		It("Should initialize an observable store correctly", func() {
-			s := store.NewObservable(copyState)
-			sub := new(subscriber)
-			s.Subscribe(sub)
+			s := store.ObservableWrap(store.New(copyState))
+			var changedState state
+			s.OnChange(func(s state) { changedState = s })
 			s.SetState(state{value: 2})
-			Expect(sub.state.value).To(Equal(2))
+			Expect(changedState.value).To(Equal(2))
 		})
 	})
 })

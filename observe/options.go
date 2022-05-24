@@ -13,9 +13,3 @@ func newOptions(opts ...Option) *options {
 }
 
 type Option func(options *options)
-
-func Async() Option {
-	return func(o *options) {
-		o.async = true
-	}
-}

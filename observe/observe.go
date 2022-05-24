@@ -1,41 +1,36 @@
 package observe
 
+// Observable is an interface that represents an entity whose state can be observed.
 type Observable[T any] interface {
-	Subscribe(s Subscriber[T])
-	Unsubscribe(s Subscriber[T])
+	// OnChange is called when the state of the observable changes.
+	OnChange(handler func(T))
 }
 
+// Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
+	// Notify notifies all subscribers of the value.
 	Notify(T)
 }
 
-type Subscriber[T any] interface {
-	Next(T)
-}
-
 type base[T any] struct {
-	options     *options
-	subscribers map[Subscriber[T]]bool
+	options  *options
+	handlers []func(T)
 }
 
+// New creates a new observer with the given options.
 func New[T any](opts ...Option) Observer[T] {
-	return &base[T]{
-		options:     newOptions(opts...),
-		subscribers: make(map[Subscriber[T]]bool),
-	}
+	return &base[T]{options: newOptions(opts...)}
 }
 
-func (b *base[T]) Subscribe(s Subscriber[T]) {
-	b.subscribers[s] = true
+// OnChange implements the Observable interface.
+func (b *base[T]) OnChange(handler func(T)) {
+	b.handlers = append(b.handlers, handler)
 }
 
-func (b *base[T]) Unsubscribe(s Subscriber[T]) {
-	delete(b.subscribers, s)
-}
-
+// Notify implements the Observer interface.
 func (b *base[T]) Notify(v T) {
-	for s := range b.subscribers {
-		s.Next(v)
+	for _, handler := range b.handlers {
+		handler(v)
 	}
 }
