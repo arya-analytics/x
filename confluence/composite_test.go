@@ -23,7 +23,6 @@ var _ = Describe("Composite", func() {
 		doubleSquare := &confluence.Transform[int]{Transform: func(i int) int { return i * i * 2 }}
 		sink := &confluence.PoolSink[int]{}
 		t := &confluence.Composite[int]{}
-
 		t.SetSegment("inFrom", source)
 		t.SetSegment("router", router)
 		Expect(t.Route("inFrom", "router", 1)).To(Succeed())
