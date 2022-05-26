@@ -207,8 +207,7 @@ func (f *Transform[V]) Flow(ctx Context) {
 			select {
 			case <-sig:
 				return nil
-			case v := <-f.inFrom.Outlet():
-				f.outTo.Inlet() <- f.Transform(v)
+			case f.outTo.Inlet() <- f.Transform(<-f.inFrom.Outlet()):
 			}
 		}
 	})
