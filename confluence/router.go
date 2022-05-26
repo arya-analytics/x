@@ -43,7 +43,11 @@ func (u UnaryRouter[V]) Route(p *Pipeline[V]) error {
 	return p.route(u.FromAddr, u.ToAddr, NewStream[V](u.Capacity))
 }
 
-func (u *UnaryRouter[V]) From() []address.Address { return []address.Address{u.FromAddr} }
+func (u UnaryRouter[V]) From() []address.Address { return []address.Address{u.FromAddr} }
+
+func (u UnaryRouter[V]) To() []address.Address { return []address.Address{u.ToAddr} }
+
+func (u UnaryRouter[V]) Cap() int { return u.Capacity }
 
 type MultiRouter[V Value] struct {
 	FromAddresses []address.Address
@@ -67,6 +71,10 @@ func (m MultiRouter[V]) Route(p *Pipeline[V]) error {
 }
 
 func (m MultiRouter[V]) From() []address.Address { return m.FromAddresses }
+
+func (m MultiRouter[V]) To() []address.Address { return m.ToAddresses }
+
+func (m MultiRouter[V]) Cap() int { return m.Capacity }
 
 func (m *MultiRouter[V]) linear(p *Pipeline[V]) error {
 	stream := NewStream[V](m.Capacity)

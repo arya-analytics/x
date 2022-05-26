@@ -9,29 +9,28 @@ import (
 
 var _ = Describe("Pipeline", func() {
 	FIt("Should execute the composite correctly", func() {
+		pipe := confluence.NewPipeline[int]()
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
-		router := &confluence.Switch[int]{Route: func(i int) address.Address {
+		pipe.InFrom(inlet)
+		pipe.OutTo(outlet)
+		pipe.Segment("router", &confluence.Switch[int]{Route: func(i int) address.Address {
 			if i%2 == 0 {
 				return "single"
 			} else {
 				return "double"
 			}
-		}}
-		square := &confluence.Transform[int]{Transform: func(i int) int { return i * i }}
-		doubleSquare := &confluence.Transform[int]{Transform: func(i int) int { return i * i * 2 }}
-		t := &confluence.Pipeline[int]{}
-		t.InFrom(inlet)
-		t.OutTo(outlet)
-		t.SetSegment("router", router)
-		Expect(t.RouteInletTo("router")).To(Succeed())
-		t.SetSegment("single", square)
-		t.SetSegment("double", doubleSquare)
-		Expect(t.Route("router", "double", 1)).To(Succeed())
-		Expect(t.Route("router", "single", 1)).To(Succeed())
-		Expect(t.RouteOutletFrom("double")).To(Succeed())
-		Expect(t.RouteOutletFrom("single")).To(Succeed())
+		}})
+		Expect(pipe.RouteInletTo(confluence.StitchLinear, 1, "router")).To(Succeed())
+		pipe.Segment("single", &confluence.Transform[int]{Transform: func(i int) int { return i * i }})
+		pipe.Segment("double", &confluence.Transform[int]{Transform: func(i int) int { return i * i * 2 }})
+		Expect(pipe.Route(confluence.MultiRouter[int]{
+			FromAddresses: []address.Address{"router"},
+			ToAddresses:   []address.Address{"single", "double"},
+			Stitch:        confluence.StitchWeave,
+		})).To(Succeed())
+		Expect(pipe.RouteOutletFrom(confluence.StitchLinear, 1, "single", "double")).To(Succeed())
 		ctx := confluence.DefaultContext()
-		t.Flow(ctx)
+		pipe.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2
 		inlet.Inlet() <- 3

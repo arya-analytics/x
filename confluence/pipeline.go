@@ -6,39 +6,29 @@ import (
 
 // Pipeline is a segment that allows the caller to compose a set of sub-segments in a routed manner.
 type Pipeline[V Value] struct {
-	segments      map[address.Address]Segment[V]
-	routes        map[address.Address]map[address.Address]Stream[V]
-	inFromToAddr  address.Address
-	outToFromAddr address.Address
+	segments     map[address.Address]Segment[V]
+	routes       map[address.Address]map[address.Address]Stream[V]
+	inFromRouter Router[V]
+	outToRouter  Router[V]
 	Linear[V]
 }
 
-// Route adds a Stream connecting the Segment at address from to the Segment at address to. Sets the buffer size
-// on the Stream to buffer.
-func (c *Pipeline[V]) Route(from address.Address, to address.Address, buffer int) error {
-	fromSeg, ok := c.getSegment(from)
-	if !ok {
-		return ErrNotFound
+func NewPipeline[V]() *Pipeline[V] {
+	return &Pipeline[V]{
+		segments: make(map[address.Address]Segment[V]),
+		routes:   make(map[address.Address]map[address.Address]Stream[V]),
 	}
-	toSeg, ok := c.getSegment(to)
-	if !ok {
-		return ErrNotFound
-	}
-	stream := NewStream[V](buffer)
-	stream.SetInletAddress(to)
-	stream.SetOutletAddress(from)
-	fromSeg.OutTo(stream)
-	toSeg.InFrom(stream)
-	c.setStream(from, to, stream)
-	return nil
 }
 
-func (c *Pipeline[V]) route(from address.Address, to address.Address, stream Stream[V]) error {
-	fromSeg, ok := c.getSegment(from)
+// Route applies the given router to the Pipeline.
+func (p *Pipeline[V]) Route(router Router[V]) error { return router.Route(p) }
+
+func (p *Pipeline[V]) route(from address.Address, to address.Address, stream Stream[V]) error {
+	fromSeg, ok := p.getSegment(from)
 	if !ok {
 		return ErrNotFound
 	}
-	toSeg, ok := c.getSegment(to)
+	toSeg, ok := p.getSegment(to)
 	if !ok {
 		return ErrNotFound
 	}
@@ -46,88 +36,80 @@ func (c *Pipeline[V]) route(from address.Address, to address.Address, stream Str
 	stream.SetOutletAddress(to)
 	fromSeg.OutTo(stream)
 	toSeg.InFrom(stream)
-	c.setStream(from, to, stream)
+	p.setStream(from, to, stream)
 	return nil
 }
 
+const (
+	inletAddr  = "--inlet--"
+	outletAddr = "--outlet--"
+)
+
 // RouteInletTo routes from the inlet of the Pipeline to the given Segment.
-func (c *Pipeline[V]) RouteInletTo(to address.Address) error {
-	if _, ok := c.getSegment(to); !ok {
-		return ErrNotFound
+func (p *Pipeline[V]) RouteInletTo(stitch Stitch, cap int, to ...address.Address) error {
+	p.inFromRouter = MultiRouter[V]{
+		FromAddresses: []address.Address{inletAddr},
+		ToAddresses:   to,
+		Stitch:        stitch,
+		Capacity:      cap,
 	}
-	c.inFromToAddr = to
-	return nil
 }
 
 // RouteOutletFrom routes from the given Segment to the outlet of the Pipeline.
-func (c *Pipeline[V]) RouteOutletFrom(from address.Address) error {
-	if _, ok := c.getSegment(from); !ok {
-		return ErrNotFound
+func (p *Pipeline[V]) RouteOutletFrom(stitch Stitch, cap int, from ...address.Address) error {
+	p.outToRouter = MultiRouter[V]{
+		FromAddresses: from,
+		ToAddresses:   []address.Address{outletAddr},
+		Stitch:        stitch,
+		Capacity:      cap,
 	}
-	c.outToFromAddr = from
 	return nil
 }
 
-// SetSegment sets the Segment at the given address.
-func (c *Pipeline[V]) SetSegment(addr address.Address, seg Segment[V]) {
-	c.setSegment(addr, seg)
+// Segment sets the Segment at the given address.
+func (p *Pipeline[V]) Segment(addr address.Address, seg Segment[V]) {
+	p.setSegment(addr, seg)
 }
 
 // Flow implements the Segment interface.
-func (c *Pipeline[V]) Flow(ctx Context) {
-	for _, seg := range c.segments {
+func (p *Pipeline[V]) Flow(ctx Context) {
+	if err := p.runEndpointRouters(); err != nil {
+		panic(err)
+	}
+	for _, seg := range p.segments {
 		seg.Flow(ctx)
 	}
 }
 
-func (c *Pipeline[V]) runRouteInFrom() {
-	toSeg, _ := c.getSegment(c.inFromToAddr)
-	c.inFrom.SetOutletAddress(c.inFromToAddr)
-	toSeg.InFrom(c.inFrom)
-}
-
-func (c *Pipeline[V]) runRouteOutTo() {
-	fromSeg, _ := c.getSegment(c.outToFromAddr)
-	c.outTo.SetInletAddress(c.outToFromAddr)
-	fromSeg.OutTo(c.outTo)
-}
-
-func (c *Pipeline[V]) getStream(from address.Address, to address.Address) (Stream[V], bool) {
-	if c.routes == nil {
-		c.routes = make(map[address.Address]map[address.Address]Stream[V])
-		return nil, false
+func (p *Pipeline[V]) runEndpointRouters() error {
+	if err := p.inFromRouter.Route(p); err != nil {
+		return err
 	}
-	opts := c.routes[from]
+	return p.outToRouter.Route(p)
+}
+
+func (p *Pipeline[V]) getStream(from address.Address, to address.Address) (Stream[V], bool) {
+	opts := p.routes[from]
 	if opts == nil {
-		c.routes[from] = make(map[address.Address]Stream[V])
+		p.routes[from] = make(map[address.Address]Stream[V])
 		return nil, false
 	}
 	stream, ok := opts[to]
 	return stream, ok
 }
 
-func (c *Pipeline[V]) setStream(from address.Address, to address.Address, stream Stream[V]) {
-	if c.routes == nil {
-		c.routes = make(map[address.Address]map[address.Address]Stream[V])
+func (p *Pipeline[V]) setStream(from address.Address, to address.Address, stream Stream[V]) {
+	if p.routes[from] == nil {
+		p.routes[from] = make(map[address.Address]Stream[V])
 	}
-	if c.routes[from] == nil {
-		c.routes[from] = make(map[address.Address]Stream[V])
-	}
-	c.routes[from][to] = stream
+	p.routes[from][to] = stream
 }
 
-func (c *Pipeline[V]) getSegment(addr address.Address) (Segment[V], bool) {
-	if c.segments == nil {
-		c.segments = make(map[address.Address]Segment[V])
-		return nil, false
-	}
-	seg, ok := c.segments[addr]
+func (p *Pipeline[V]) getSegment(addr address.Address) (Segment[V], bool) {
+	seg, ok := p.segments[addr]
 	return seg, ok
 }
 
-func (c *Pipeline[V]) setSegment(addr address.Address, seg Segment[V]) {
-	if c.segments == nil {
-		c.segments = make(map[address.Address]Segment[V])
-	}
-	c.segments[addr] = seg
+func (p *Pipeline[V]) setSegment(addr address.Address, seg Segment[V]) {
+	p.segments[addr] = seg
 }
