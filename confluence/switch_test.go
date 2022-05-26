@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-var _ = Describe("Router", func() {
+var _ = Describe("Switch", func() {
 	It("Should route values to the correct inlets", func() {
 		stream := confluence.NewStream[int](3)
 		double := confluence.NewStream[int](3)
 		double.SetInletAddress("double")
 		single := confluence.NewStream[int](3)
 		single.SetInletAddress("single")
-		router := &confluence.Router[int]{
+		router := &confluence.Switch[int]{
 			Route: func(i int) address.Address {
 				if i%2 == 0 {
 					return "single"
@@ -42,7 +42,7 @@ var _ = Describe("Router", func() {
 		stream2 := confluence.NewStream[int](3)
 		single := confluence.NewStream[int](5)
 		single.SetInletAddress("single")
-		router := &confluence.Router[int]{Route: func(i int) address.Address {
+		router := &confluence.Switch[int]{Route: func(i int) address.Address {
 			return "single"
 		}}
 		router.InFrom(stream1)

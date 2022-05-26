@@ -7,10 +7,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Composite", func() {
+var _ = Describe("Pipeline", func() {
 	FIt("Should execute the composite correctly", func() {
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
-		router := &confluence.Router[int]{Route: func(i int) address.Address {
+		router := &confluence.Switch[int]{Route: func(i int) address.Address {
 			if i%2 == 0 {
 				return "single"
 			} else {
@@ -19,7 +19,7 @@ var _ = Describe("Composite", func() {
 		}}
 		square := &confluence.Transform[int]{Transform: func(i int) int { return i * i }}
 		doubleSquare := &confluence.Transform[int]{Transform: func(i int) int { return i * i * 2 }}
-		t := &confluence.Composite[int]{}
+		t := &confluence.Pipeline[int]{}
 		t.InFrom(inlet)
 		t.OutTo(outlet)
 		t.SetSegment("router", router)

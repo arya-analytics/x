@@ -2,7 +2,6 @@ package confluence
 
 import (
 	"context"
-	"errors"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/shutdown"
 )
@@ -16,7 +15,7 @@ type Value any
 
 // Inlet is a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {
-	// Inlet pipes a value through the stream.
+	// Inlet pipes a value through the streamImpl.
 	Inlet() chan<- V
 	// InletAddress returns the address of the inlet.
 	InletAddress() address.Address
@@ -26,7 +25,7 @@ type Inlet[V Value] interface {
 
 // Outlet is a Stream that emits values and can be addressed.
 type Outlet[V Value] interface {
-	// Outlet receives a value from the stream.
+	// Outlet receives a value from the streamImpl.
 	Outlet() <-chan V
 	// OutletAddress returns the address of the outlet.
 	OutletAddress() address.Address
@@ -65,10 +64,10 @@ func DefaultContext() Context {
 
 // |||||| ROUTER ||||||
 
-// Router is a segment that reads values from a set of input streams, resolves their address,
-// and sends them to the appropriate output streams. Router is a more efficient implementation of
+// Switch is a segment that reads values from a set of input streams, resolves their address,
+// and sends them to the appropriate output streams. Switch is a more efficient implementation of
 // Map for when the addresses of input streams are not important.
-type Router[V Value] struct {
+type Switch[V Value] struct {
 	// Route is a function that resolves the address of a Value.
 	Route  func(v V) address.Address
 	inFrom []Outlet[V]
@@ -76,12 +75,12 @@ type Router[V Value] struct {
 }
 
 // InFrom implements the Segment interface.
-func (r *Router[V]) InFrom(outlets ...Outlet[V]) {
+func (r *Switch[V]) InFrom(outlets ...Outlet[V]) {
 	r.inFrom = append(r.inFrom, outlets...)
 }
 
 // OutTo implements the Segment interface.
-func (r *Router[V]) OutTo(inlets ...Inlet[V]) {
+func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
 	if r.outTo == nil {
 		r.outTo = make(map[address.Address]Inlet[V])
 	}
@@ -91,7 +90,7 @@ func (r *Router[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (r *Router[V]) Flow(ctx Context) {
+func (r *Switch[V]) Flow(ctx Context) {
 	for _, outlet := range r.inFrom {
 		_outlet := outlet
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
@@ -115,7 +114,7 @@ func (r *Router[V]) Flow(ctx Context) {
 // |||||| CONFLUENCE ||||||
 
 // Confluence is a segment that reads values from a set of input streams and pipes them to multiple output streams.
-// Every output stream receives a copy of the value.
+// Every output streamImpl receives a copy of the value.
 type Confluence[V Value] struct {
 	inFrom []Outlet[V]
 	outTo  []Inlet[V]
@@ -150,7 +149,7 @@ func (d *Confluence[V]) Flow(ctx Context) {
 }
 
 // Delta is similar to confluence. It reads values from a set of input streams and pipes them to a set of output streams.
-// Only one output stream receives a copy of each value from input stream. This value is taken by the first
+// Only one output streamImpl receives a copy of each value from input streamImpl. This value is taken by the first
 // inlet that can accept it.
 type Delta[V Value] struct {
 	inFrom []Outlet[V]
@@ -192,8 +191,8 @@ func (d *Delta[V]) Flow(ctx Context) {
 
 // |||||| TRANSFORM ||||||
 
-// Transform is a segment that reads values from an input stream, executes a transformation on them,
-// and sends them to an ouput stream.
+// Transform is a segment that reads values from an input streamImpl, executes a transformation on them,
+// and sends them to an ouput streamImpl.
 type Transform[V Value] struct {
 	Transform func(V) V
 	Linear[V]
@@ -215,8 +214,8 @@ func (f *Transform[V]) Flow(ctx Context) {
 
 // |||||| FILTER ||||||
 
-// Filter is a segment that reads values from an input stream, filters them through a function, and
-// optionally discards them to an output stream.
+// Filter is a segment that reads values from an input streamImpl, filters them through a function, and
+// optionally discards them to an output streamImpl.
 type Filter[V Value] struct {
 	Filter  func(V) bool
 	Rejects Inlet[V]
@@ -245,7 +244,7 @@ func (f *Filter[V]) Flow(sd shutdown.Shutdown) <-chan error {
 
 // |||||| LINEAR ||||||
 
-// Linear is a segment that reads values from a single input stream and pipes them to a single output stream.
+// Linear is a segment that reads values from a single input streamImpl and pipes them to a single output streamImpl.
 type Linear[V Value] struct {
 	inFrom Outlet[V]
 	outTo  Inlet[V]
@@ -285,8 +284,8 @@ func (l *Linear[V]) Flow(ctx Context) {
 
 // |||||| MAP ||||||
 
-// Map is a segment that reads values from an addresses input stream, maps them to an output address, and
-// sends them. Map is a relatively inefficient Segment, use Router when possible.
+// Map is a segment that reads values from an addresses input streamImpl, maps them to an output address, and
+// sends them. Map is a relatively inefficient Segment, use Switch when possible.
 type Map[V Value] struct {
 	Map    func(addr address.Address, v Value) address.Address
 	inFrom map[address.Address]Outlet[V]
@@ -327,118 +326,4 @@ func (m *Map[V]) Flow(ctx Context) {
 			}
 		})
 	}
-}
-
-// ErrNotFound is returned when a value is not found in a Composite.
-var ErrNotFound = errors.New("not found")
-
-// Composite is a segment that allows the caller to compose a set of sub-segments in a routed manner.
-type Composite[V Value] struct {
-	segments      map[address.Address]Segment[V]
-	routes        map[address.Address]map[address.Address]Stream[V]
-	inFromToAddr  address.Address
-	outToFromAddr address.Address
-	Linear[V]
-}
-
-// Route adds a Stream connecting the Segment at address from to the Segment at address to. Sets the buffer size
-// on the Stream to buffer.
-func (c *Composite[V]) Route(from address.Address, to address.Address, buffer int) error {
-	fromSeg, ok := c.getSegment(from)
-	if !ok {
-		return ErrNotFound
-	}
-	toSeg, ok := c.getSegment(to)
-	if !ok {
-		return ErrNotFound
-	}
-	stream := NewStream[V](buffer)
-	stream.SetInletAddress(to)
-	stream.SetOutletAddress(from)
-	fromSeg.OutTo(stream)
-	toSeg.InFrom(stream)
-	c.setStream(from, to, stream)
-	return nil
-}
-
-// RouteInletTo routes from the inlet of the Composite to the given Segment.
-func (c *Composite[V]) RouteInletTo(to address.Address) error {
-	if _, ok := c.getSegment(to); !ok {
-		return ErrNotFound
-	}
-	c.inFromToAddr = to
-	return nil
-}
-
-// RouteOutletFrom routes from the given Segment to the outlet of the Composite.
-func (c *Composite[V]) RouteOutletFrom(from address.Address) error {
-	if _, ok := c.getSegment(from); !ok {
-		return ErrNotFound
-	}
-	c.outToFromAddr = from
-	return nil
-}
-
-// SetSegment sets the Segment at the given address.
-func (c *Composite[V]) SetSegment(addr address.Address, seg Segment[V]) {
-	c.setSegment(addr, seg)
-}
-
-// Flow implements the Segment interface.
-func (c *Composite[V]) Flow(ctx Context) {
-	for _, seg := range c.segments {
-		seg.Flow(ctx)
-	}
-}
-
-func (c *Composite[V]) runRouteInFrom() {
-	toSeg, _ := c.getSegment(c.inFromToAddr)
-	c.inFrom.SetOutletAddress(c.inFromToAddr)
-	toSeg.InFrom(c.inFrom)
-}
-
-func (c *Composite[V]) runRouteOutTo() {
-	fromSeg, _ := c.getSegment(c.outToFromAddr)
-	c.outTo.SetInletAddress(c.outToFromAddr)
-	fromSeg.OutTo(c.outTo)
-}
-
-func (c *Composite[V]) getStream(from address.Address, to address.Address) (Stream[V], bool) {
-	if c.routes == nil {
-		c.routes = make(map[address.Address]map[address.Address]Stream[V])
-		return nil, false
-	}
-	opts := c.routes[from]
-	if opts == nil {
-		c.routes[from] = make(map[address.Address]Stream[V])
-		return nil, false
-	}
-	stream, ok := opts[to]
-	return stream, ok
-}
-
-func (c *Composite[V]) setStream(from address.Address, to address.Address, stream Stream[V]) {
-	if c.routes == nil {
-		c.routes = make(map[address.Address]map[address.Address]Stream[V])
-	}
-	if c.routes[from] == nil {
-		c.routes[from] = make(map[address.Address]Stream[V])
-	}
-	c.routes[from][to] = stream
-}
-
-func (c *Composite[V]) getSegment(addr address.Address) (Segment[V], bool) {
-	if c.segments == nil {
-		c.segments = make(map[address.Address]Segment[V])
-		return nil, false
-	}
-	seg, ok := c.segments[addr]
-	return seg, ok
-}
-
-func (c *Composite[V]) setSegment(addr address.Address, seg Segment[V]) {
-	if c.segments == nil {
-		c.segments = make(map[address.Address]Segment[V])
-	}
-	c.segments[addr] = seg
 }
