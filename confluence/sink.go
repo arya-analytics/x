@@ -10,20 +10,41 @@ type Sink[V Value] interface {
 	Flow(sd shutdown.Shutdown) <-chan error
 }
 
-type AbstractSink[V Value] struct {
+type CoreSink[V Value] struct {
+	Sink   func(V) error
 	inFrom []Outlet[V]
 }
 
-func (s *AbstractSink[V]) InFrom(outlet ...Outlet[V]) {
+func (s *CoreSink[V]) InFrom(outlet ...Outlet[V]) {
 	s.inFrom = append(s.inFrom, outlet...)
 }
 
-func (s *AbstractSink[V]) OutTo(_ ...Inlet[V]) {
-	panic("sink cannot receive Values from an outlet.")
+func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) {
+	panic("outTo cannot receive Values from an outTo.")
+}
+
+func (s *CoreSink[V]) Flow(sd shutdown.Shutdown) <-chan error {
+	errC := make(chan error)
+	for _, outlet := range s.inFrom {
+		outlet = outlet
+		sd.Go(func(sig chan shutdown.Signal) error {
+			for {
+				select {
+				case <-sig:
+					return nil
+				case v := <-outlet.Outlet():
+					if err := s.Sink(v); err != nil {
+						return err
+					}
+				}
+			}
+		})
+	}
+	return errC
 }
 
 type PoolSink[V Value] struct {
-	AbstractSink[V]
+	CoreSink[V]
 	mu     sync.Mutex
 	Values []V
 }

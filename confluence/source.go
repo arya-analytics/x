@@ -11,15 +11,15 @@ type Source[V Value] interface {
 	Flow(sd shutdown.Shutdown) <-chan error
 }
 
-type AbstractSource[V Value] struct {
+type CoreSource[V Value] struct {
 	outTo map[address.Address]Inlet[V]
 }
 
-func (s *AbstractSource[V]) InFrom(_ ...Outlet[V]) {
-	panic("source cannot receive Values from an outlet.")
+func (s *CoreSource[V]) InFrom(_ ...Outlet[V]) {
+	panic("inFrom cannot receive Values from an outTo.")
 }
 
-func (s *AbstractSource[V]) OutTo(inlets ...Inlet[V]) {
+func (s *CoreSource[V]) OutTo(inlets ...Inlet[V]) {
 	if s.outTo == nil {
 		s.outTo = make(map[address.Address]Inlet[V])
 	}
@@ -29,7 +29,7 @@ func (s *AbstractSource[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 type PoolSource[V Value] struct {
-	AbstractSource[V]
+	CoreSource[V]
 	Values []V
 }
 
