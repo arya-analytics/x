@@ -5,6 +5,7 @@ import (
 	"github.com/arya-analytics/x/confluence"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	//log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -56,14 +57,15 @@ var _ = Describe("Switch", func() {
 		stream2.Inlet() <- 4
 		close(stream1.Inlet())
 		close(stream2.Inlet())
-		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
 		count := 0
 		for range single.Outlet() {
+			//log.Info(count)
 			count++
 			if count == 4 {
 				break
 			}
 		}
+		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
 		Expect(count).To(Equal(4))
 	})
 })

@@ -92,13 +92,13 @@ func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
 // Flow implements the Segment interface.
 func (r *Switch[V]) Flow(ctx Context) {
 	for _, outlet := range r.inFrom {
-		_outlet := outlet
+		outlet = outlet
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
 					return nil
-				case v := <-_outlet.Outlet():
+				case v := <-outlet.Outlet():
 					addr := r.Route(v)
 					inlet, ok := r.outTo[addr]
 					if !ok {
@@ -133,6 +133,7 @@ func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) {
 // Flow implements the Segment interface.
 func (d *Confluence[V]) Flow(ctx Context) {
 	for _, outlet := range d.inFrom {
+		outlet = outlet
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
@@ -169,6 +170,7 @@ func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
 // Flow implements the Segment interface.
 func (d *Delta[V]) Flow(ctx Context) {
 	for _, outlet := range d.inFrom {
+		outlet = outlet
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
@@ -192,7 +194,7 @@ func (d *Delta[V]) Flow(ctx Context) {
 // |||||| TRANSFORM ||||||
 
 // Transform is a segment that reads values from an input streamImpl, executes a transformation on them,
-// and sends them to an ouput streamImpl.
+// and sends them to an out Stream.
 type Transform[V Value] struct {
 	Transform func(V) V
 	Linear[V]
@@ -214,8 +216,8 @@ func (f *Transform[V]) Flow(ctx Context) {
 
 // |||||| FILTER ||||||
 
-// Filter is a segment that reads values from an input streamImpl, filters them through a function, and
-// optionally discards them to an output streamImpl.
+// Filter is a segment that reads values from an input Stream, filters them through a function, and
+// optionally discards them to an output Stream.
 type Filter[V Value] struct {
 	Filter  func(V) bool
 	Rejects Inlet[V]
@@ -223,9 +225,8 @@ type Filter[V Value] struct {
 }
 
 // Flow implements the Segment interface.
-func (f *Filter[V]) Flow(sd shutdown.Shutdown) <-chan error {
-	errC := make(chan error)
-	sd.Go(func(sig chan shutdown.Signal) error {
+func (f *Filter[V]) Flow(ctx Context) {
+	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for {
 			select {
 			case <-sig:
@@ -239,7 +240,6 @@ func (f *Filter[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		}
 	})
-	return errC
 }
 
 // |||||| LINEAR ||||||
