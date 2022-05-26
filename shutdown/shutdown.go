@@ -184,4 +184,4 @@ func WithKey(key string) GoOption { return func(opt *goOptions) { opt.key = key 
 
 func WithContext(ctx context.Context) GoOption { return func(opt *goOptions) { opt.ctx = ctx } }
 
-func WithPipe(errC chan error) GoOption { return func(opt *goOptions) { opt.pipe = errC } }
+func WithErrPipe(errC chan error) GoOption { return func(opt *goOptions) { opt.pipe = errC } }

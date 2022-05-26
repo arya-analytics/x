@@ -9,7 +9,7 @@ type pebbleKV struct {
 	DB *pebble.DB
 }
 
-// Wrap wraps a pebble.DB to satisfy the kv.KV interface.
+// Wrap wraps a pebble.DB to satisfy the kv.kv interface.
 func Wrap(db *pebble.DB) kvc.KV {
 	return &pebbleKV{DB: db}
 }
