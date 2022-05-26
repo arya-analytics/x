@@ -5,10 +5,11 @@ import (
 	"github.com/arya-analytics/x/confluence"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sort"
 )
 
 var _ = Describe("Pipeline", func() {
-	FIt("Should execute the composite correctly", func() {
+	It("Should execute the composite correctly", func() {
 		pipe := confluence.NewPipeline[int]()
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
 		pipe.InFrom(inlet)
@@ -20,7 +21,7 @@ var _ = Describe("Pipeline", func() {
 				return "double"
 			}
 		}})
-		Expect(pipe.RouteInletTo(confluence.StitchLinear, 1, "router")).To(Succeed())
+		Expect(pipe.RouteInletTo("router")).To(Succeed())
 		pipe.Segment("single", &confluence.Transform[int]{Transform: func(i int) int { return i * i }})
 		pipe.Segment("double", &confluence.Transform[int]{Transform: func(i int) int { return i * i * 2 }})
 		Expect(pipe.Route(confluence.MultiRouter[int]{
@@ -28,15 +29,22 @@ var _ = Describe("Pipeline", func() {
 			ToAddresses:   []address.Address{"single", "double"},
 			Stitch:        confluence.StitchWeave,
 		})).To(Succeed())
-		Expect(pipe.RouteOutletFrom(confluence.StitchLinear, 1, "single", "double")).To(Succeed())
+		Expect(pipe.RouteOutletFrom("single", "double")).To(Succeed())
 		ctx := confluence.DefaultContext()
 		pipe.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2
 		inlet.Inlet() <- 3
-		Expect(<-outlet.Outlet()).To(Equal(1))
-		Expect(<-outlet.Outlet()).To(Equal(4))
-		Expect(<-outlet.Outlet()).To(Equal(9))
+		var values []int
+		for v := range outlet.Outlet() {
+			values = append(values, v)
+			if len(values) == 3 {
+				break
+			}
+		}
 		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
+		Expect(values).To(HaveLen(3))
+		sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
+		Expect(values).To(Equal([]int{2, 4, 18}))
 	})
 })
