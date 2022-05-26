@@ -5,29 +5,32 @@ import (
 	"sync"
 )
 
+// Sink is a segment that can accept values from outlets, but cannot
+// send values to inlets. Sinks are typically used to write values
+// to network pipes or persistent storage.
 type Sink[V Value] interface {
 	InFrom(outlets ...Outlet[V])
-	Flow(sd shutdown.Shutdown) <-chan error
+	Flow[V]
 }
 
+// CoreSink is a basic implementation of Sink. It implements the Segment
+// interface, but will panic if any inlets are added.
 type CoreSink[V Value] struct {
 	Sink   func(V) error
 	inFrom []Outlet[V]
 }
 
-func (s *CoreSink[V]) InFrom(outlet ...Outlet[V]) {
-	s.inFrom = append(s.inFrom, outlet...)
-}
+// InFrom implements the Segment interface.
+func (s *CoreSink[V]) InFrom(outlet ...Outlet[V]) { s.inFrom = append(s.inFrom, outlet...) }
 
-func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) {
-	panic("outTo cannot receive Values from an outTo.")
-}
+// OutTo implements the Segment interface. This method will panic if called.
+func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) { panic("sinks cannot pipe values out") }
 
-func (s *CoreSink[V]) Flow(sd shutdown.Shutdown) <-chan error {
-	errC := make(chan error)
+// Flow implements the Segment interface.
+func (s *CoreSink[V]) Flow(ctx Context) {
 	for _, outlet := range s.inFrom {
 		outlet = outlet
-		sd.Go(func(sig chan shutdown.Signal) error {
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
@@ -40,19 +43,20 @@ func (s *CoreSink[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		})
 	}
-	return errC
 }
 
+// PoolSink is a Sink that collects values from multiple outlets into a slice.
 type PoolSink[V Value] struct {
 	CoreSink[V]
 	mu     sync.Mutex
 	Values []V
 }
 
-func (p *PoolSink[V]) Flow(sd shutdown.Shutdown) <-chan error {
+// Flow implements the Segment interface.
+func (p *PoolSink[V]) Flow(ctx Context) {
 	for _, outlet := range p.inFrom {
 		_outlet := outlet
-		sd.Go(func(sig chan shutdown.Signal) error {
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
@@ -65,5 +69,4 @@ func (p *PoolSink[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		})
 	}
-	return nil
 }

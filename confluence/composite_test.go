@@ -3,7 +3,6 @@ package confluence_test
 import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/shutdown"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"time"
@@ -33,9 +32,9 @@ var _ = Describe("Composite", func() {
 		t.SetSegment("outTo", sink)
 		Expect(t.Route("double", "outTo", 1)).To(Succeed())
 		Expect(t.Route("single", "outTo", 1)).To(Succeed())
-		sd := shutdown.New()
-		t.Flow(sd)
-		Expect(sd.ShutdownAfter(1 * time.Millisecond)).To(Succeed())
+		ctx := confluence.DefaultContext()
+		t.Flow(ctx)
+		Expect(ctx.Shutdown.ShutdownAfter(1 * time.Millisecond)).To(Succeed())
 		Expect(sink.Values).To(HaveLen(3))
 	})
 })

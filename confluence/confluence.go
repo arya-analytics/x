@@ -1,6 +1,7 @@
 package confluence
 
 import (
+	"context"
 	"errors"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/shutdown"
@@ -33,46 +34,33 @@ type Outlet[V Value] interface {
 	SetOutletAddress(address.Address)
 }
 
-// Stream represents a stream of values with addresses Inlet and Outlet.
-type Stream[V Value] interface {
-	Inlet[V]
-	Outlet[V]
-}
-
-type coreStream[V Value] struct {
-	inletAddr  address.Address
-	outletAddr address.Address
-	Values     chan V
-}
-
-// Inlet implements Stream.
-func (c *coreStream[V]) Inlet() chan<- V { return c.Values }
-
-// Outlet represents Stream.
-func (c *coreStream[V]) Outlet() <-chan V { return c.Values }
-
-// InletAddress implements Stream.
-func (c *coreStream[V]) InletAddress() address.Address { return c.inletAddr }
-
-// SetInletAddress implements Stream.
-func (c *coreStream[V]) SetInletAddress(addr address.Address) { c.inletAddr = addr }
-
-// OutletAddress implements Stream.
-func (c *coreStream[V]) OutletAddress() address.Address { return c.outletAddr }
-
-// SetOutletAddress implements Stream.
-func (c *coreStream[V]) SetOutletAddress(addr address.Address) { c.outletAddr = addr }
-
-// NewStream opens a new Stream with the given buffer capacity.
-func NewStream[V Value](buffer int) Stream[V] { return &coreStream[V]{Values: make(chan V, buffer)} }
-
 // |||||| SEGMENT ||||||
+
+type Flow[V Value] interface {
+	Flow(ctx Context)
+}
 
 // Segment is an interface that accepts values from an Inlet Stream, does some operation on them, and returns the
 // values through an Outlet Stream.
 type Segment[V Value] interface {
 	Source[V]
 	Sink[V]
+}
+
+// |||||| CONTEXT ||||||
+
+type Context struct {
+	Ctx      context.Context
+	ErrC     chan error
+	Shutdown shutdown.Shutdown
+}
+
+func DefaultContext() Context {
+	return Context{
+		Ctx:      context.Background(),
+		ErrC:     make(chan error),
+		Shutdown: shutdown.New(),
+	}
 }
 
 // |||||| ROUTER ||||||
@@ -103,11 +91,10 @@ func (r *Router[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (r *Router[V]) Flow(sd shutdown.Shutdown) <-chan error {
-	errC := make(chan error)
+func (r *Router[V]) Flow(ctx Context) {
 	for _, outlet := range r.inFrom {
 		_outlet := outlet
-		sd.Go(func(sig chan shutdown.Signal) error {
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
@@ -116,15 +103,13 @@ func (r *Router[V]) Flow(sd shutdown.Shutdown) <-chan error {
 					addr := r.Route(v)
 					inlet, ok := r.outTo[addr]
 					if !ok {
-						errC <- address.NotFoundError{Address: addr}
-						continue
+						panic("address not found")
 					}
 					inlet.Inlet() <- v
 				}
 			}
 		})
 	}
-	return errC
 }
 
 // |||||| CONFLUENCE ||||||
@@ -147,9 +132,9 @@ func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (d *Confluence[V]) Flow(sd shutdown.Shutdown) <-chan error {
+func (d *Confluence[V]) Flow(ctx Context) {
 	for _, outlet := range d.inFrom {
-		sd.Go(func(sig chan shutdown.Signal) error {
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
@@ -162,7 +147,6 @@ func (d *Confluence[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		})
 	}
-	return nil
 }
 
 // Delta is similar to confluence. It reads values from a set of input streams and pipes them to a set of output streams.
@@ -184,9 +168,9 @@ func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (d *Delta[V]) Flow(sd shutdown.Shutdown) <-chan error {
+func (d *Delta[V]) Flow(ctx Context) {
 	for _, outlet := range d.inFrom {
-		sd.Go(func(sig chan shutdown.Signal) error {
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
@@ -204,7 +188,6 @@ func (d *Delta[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		})
 	}
-	return nil
 }
 
 // |||||| TRANSFORM ||||||
@@ -217,9 +200,8 @@ type Transform[V Value] struct {
 }
 
 // Flow implements the Segment interface.
-func (f *Transform[V]) Flow(sd shutdown.Shutdown) <-chan error {
-	errC := make(chan error)
-	sd.Go(func(sig chan shutdown.Signal) error {
+func (f *Transform[V]) Flow(ctx Context) {
+	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for {
 			select {
 			case <-sig:
@@ -229,7 +211,6 @@ func (f *Transform[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		}
 	})
-	return errC
 }
 
 // |||||| FILTER ||||||
@@ -290,9 +271,8 @@ func (l *Linear[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (l *Linear[V]) Flow(sd shutdown.Shutdown) <-chan error {
-	errC := make(chan error)
-	sd.Go(func(sig chan shutdown.Signal) error {
+func (l *Linear[V]) Flow(ctx Context) {
+	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for {
 			select {
 			case <-sig:
@@ -301,7 +281,6 @@ func (l *Linear[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		}
 	})
-	return errC
 }
 
 // |||||| MAP ||||||
@@ -335,9 +314,9 @@ func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (m *Map[V]) Flow(sd shutdown.Shutdown) <-chan error {
+func (m *Map[V]) Flow(ctx Context) {
 	for inAddr, outlet := range m.inFrom {
-		sd.Go(func(sig chan shutdown.Signal) error {
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
@@ -348,7 +327,6 @@ func (m *Map[V]) Flow(sd shutdown.Shutdown) <-chan error {
 			}
 		})
 	}
-	return nil
 }
 
 // ErrNotFound is returned when a value is not found in a Composite.
@@ -407,11 +385,10 @@ func (c *Composite[V]) SetSegment(addr address.Address, seg Segment[V]) {
 }
 
 // Flow implements the Segment interface.
-func (c *Composite[V]) Flow(sd shutdown.Shutdown) <-chan error {
+func (c *Composite[V]) Flow(ctx Context) {
 	for _, seg := range c.segments {
-		seg.Flow(sd)
+		seg.Flow(ctx)
 	}
-	return nil
 }
 
 func (c *Composite[V]) runRouteInFrom() {
