@@ -165,6 +165,48 @@ func (d *Confluence[V]) Flow(sd shutdown.Shutdown) <-chan error {
 	return nil
 }
 
+// Delta is similar to confluence. It reads values from a set of input streams and pipes them to a set of output streams.
+// Only one output stream receives a copy of each value from input stream. This value is taken by the first
+// inlet that can accept it.
+type Delta[V Value] struct {
+	inFrom []Outlet[V]
+	outTo  []Inlet[V]
+}
+
+// InFrom implements the Segment interface.
+func (d *Delta[V]) InFrom(outlets ...Outlet[V]) {
+	d.inFrom = append(d.inFrom, outlets...)
+}
+
+// OutTo implements the Segment interface.
+func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
+	d.outTo = append(d.outTo, inlets...)
+}
+
+// Flow implements the Segment interface.
+func (d *Delta[V]) Flow(sd shutdown.Shutdown) <-chan error {
+	for _, outlet := range d.inFrom {
+		sd.Go(func(sig chan shutdown.Signal) error {
+			for {
+				select {
+				case <-sig:
+					return nil
+				case v := <-outlet.Outlet():
+				o:
+					for _, inlet := range d.outTo {
+						select {
+						case inlet.Inlet() <- v:
+							break o
+						default:
+						}
+					}
+				}
+			}
+		})
+	}
+	return nil
+}
+
 // |||||| TRANSFORM ||||||
 
 // Transform is a segment that reads values from an input stream, executes a transformation on them,
@@ -309,6 +351,9 @@ func (m *Map[V]) Flow(sd shutdown.Shutdown) <-chan error {
 	return nil
 }
 
+// ErrNotFound is returned when a value is not found in a Composite.
+var ErrNotFound = errors.New("not found")
+
 // Composite is a segment that allows the caller to compose a set of sub-segments in a routed manner.
 type Composite[V Value] struct {
 	segments      map[address.Address]Segment[V]
@@ -340,24 +385,16 @@ func (c *Composite[V]) Route(from address.Address, to address.Address, buffer in
 
 // RouteInletTo routes from the inlet of the Composite to the given Segment.
 func (c *Composite[V]) RouteInletTo(to address.Address) error {
-	_, ok := c.getSegment(to)
-	if !ok {
+	if _, ok := c.getSegment(to); !ok {
 		return ErrNotFound
 	}
 	c.inFromToAddr = to
 	return nil
 }
 
-func (c *Composite[V]) runRouteInFrom() {
-	toSeg, _ := c.getSegment(c.inFromToAddr)
-	c.inFrom.SetOutletAddress(c.inFromToAddr)
-	toSeg.InFrom(c.inFrom)
-}
-
 // RouteOutletFrom routes from the given Segment to the outlet of the Composite.
 func (c *Composite[V]) RouteOutletFrom(from address.Address) error {
-	_, ok := c.getSegment(from)
-	if !ok {
+	if _, ok := c.getSegment(from); !ok {
 		return ErrNotFound
 	}
 	c.outToFromAddr = from
@@ -375,6 +412,12 @@ func (c *Composite[V]) Flow(sd shutdown.Shutdown) <-chan error {
 		seg.Flow(sd)
 	}
 	return nil
+}
+
+func (c *Composite[V]) runRouteInFrom() {
+	toSeg, _ := c.getSegment(c.inFromToAddr)
+	c.inFrom.SetOutletAddress(c.inFromToAddr)
+	toSeg.InFrom(c.inFrom)
 }
 
 func (c *Composite[V]) runRouteOutTo() {
@@ -422,7 +465,3 @@ func (c *Composite[V]) setSegment(addr address.Address, seg Segment[V]) {
 	}
 	c.segments[addr] = seg
 }
-
-var (
-	ErrNotFound = errors.New("not found")
-)
