@@ -2,7 +2,6 @@ package confluence
 
 import (
 	"github.com/arya-analytics/x/shutdown"
-	"sync"
 )
 
 // Sink is a segment that can accept values from outlets, but cannot
@@ -45,28 +44,15 @@ func (s *CoreSink[V]) Flow(ctx Context) {
 	}
 }
 
-// PoolSink is a Sink that collects values from multiple outlets into a slice.
-type PoolSink[V Value] struct {
+type Reader[V Value] struct {
 	CoreSink[V]
-	mu     sync.Mutex
-	Values []V
+	Values chan<- V
 }
 
-// Flow implements the Segment interface.
-func (p *PoolSink[V]) Flow(ctx Context) {
-	for _, outlet := range p.inFrom {
-		_outlet := outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-_outlet.Outlet():
-					p.mu.Lock()
-					p.Values = append(p.Values, v)
-					p.mu.Unlock()
-				}
-			}
-		})
+func (r *Reader[V]) Flow(ctx Context) {
+	r.Sink = func(v V) error {
+		r.Values <- v
+		return nil
 	}
+	r.CoreSink.Flow(ctx)
 }

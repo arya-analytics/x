@@ -21,14 +21,15 @@ func (s *CoreSource[V]) InFrom(_ ...Outlet[V]) { panic("sources cannot receive v
 
 func (s *CoreSource[V]) OutTo(inlets ...Inlet[V]) { s.outTo = append(s.outTo, inlets...) }
 
-type PoolSource[V Value] struct {
+// Writer implements the Segment interface that allows the caller to write values to it.
+type Writer[V Value] struct {
 	CoreSource[V]
-	Values []V
+	Values <-chan V
 }
 
-func (s *PoolSource[V]) Flow(ctx Context) {
+func (s *Writer[V]) Flow(ctx Context) {
 	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for _, v := range s.Values {
+		for v := range s.Values {
 			select {
 			case <-sig:
 				return nil

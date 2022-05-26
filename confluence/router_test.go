@@ -54,7 +54,9 @@ var _ = Describe("Router", func() {
 		stream1.Inlet() <- 2
 		stream2.Inlet() <- 3
 		stream2.Inlet() <- 4
-		Expect(ctx.Shutdown.ShutdownAfter(2 * time.Millisecond)).To(Succeed())
+		close(stream1.Inlet())
+		close(stream2.Inlet())
+		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
 		count := 0
 		for range single.Outlet() {
 			count++
