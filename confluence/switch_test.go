@@ -17,7 +17,7 @@ var _ = Describe("Switch", func() {
 		single := confluence.NewStream[int](3)
 		single.SetInletAddress("single")
 		router := &confluence.Switch[int]{
-			Route: func(i int) address.Address {
+			Switch: func(i int) address.Address {
 				if i%2 == 0 {
 					return "single"
 				} else {
@@ -43,7 +43,7 @@ var _ = Describe("Switch", func() {
 		stream2 := confluence.NewStream[int](3)
 		single := confluence.NewStream[int](5)
 		single.SetInletAddress("single")
-		router := &confluence.Switch[int]{Route: func(i int) address.Address {
+		router := &confluence.Switch[int]{Switch: func(i int) address.Address {
 			return "single"
 		}}
 		router.InFrom(stream1)

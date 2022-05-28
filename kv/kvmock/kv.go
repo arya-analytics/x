@@ -1,4 +1,4 @@
-package mock
+package kvmock
 
 import (
 	"github.com/arya-analytics/x/kv"

@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Transform", func() {
+var _ = Describe("transform", func() {
 	It("Should transform values correctly", func() {
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](4)

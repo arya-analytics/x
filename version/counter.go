@@ -1,6 +1,6 @@
 package version
 
-type Counter uint64
+type Counter int64
 
 func (c Counter) Increment() Counter {
 	return c + 1

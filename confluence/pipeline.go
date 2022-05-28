@@ -69,11 +69,11 @@ func (p *Pipeline[V]) RouteOutletFrom(from ...address.Address) error {
 func (p *Pipeline[V]) constructEndpointRoutes() {
 	for _, addr := range p.routeOutletFrom {
 		seg, _ := p.getSegment(addr)
-		seg.OutTo(p.outTo)
+		seg.OutTo(p.Out)
 	}
 	for _, addr := range p.routeInletTo {
 		seg, _ := p.getSegment(addr)
-		seg.InFrom(p.inFrom)
+		seg.InFrom(p.In)
 	}
 }
 

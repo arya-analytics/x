@@ -57,3 +57,12 @@ func ElementOf[V comparable](s []V, e V) bool {
 	}
 	return false
 }
+
+func Slice[V any](s []V, filter func(V) bool) (f []V) {
+	for _, v := range s {
+		if filter(v) {
+			f = append(f, v)
+		}
+	}
+	return f
+}

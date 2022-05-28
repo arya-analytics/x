@@ -13,14 +13,24 @@ import (
 // State is the contents of a Store.
 type State = any
 
-// Store is a simple copy-on-read in memory store.
-// To create a new Store, called store.New().
-type Store[S State] interface {
+// Reader is a readable Store.
+type Reader[S State] interface {
+	// GetState returns a copy of the current state.
+	GetState() S
+}
+
+// Writer is a writable Store.
+type Writer[S State] interface {
 	// SetState sets the state of the store. This is NOT a copy-on write operation,
 	// so make sure to provide a copy of the state.
 	SetState(S)
-	// GetState returns a copy of the current state.
-	GetState() S
+}
+
+// Store is a simple copy-on-read in memory store.
+// ToAddr create a new Store, called store.New().
+type Store[S State] interface {
+	Reader[S]
+	Writer[S]
 }
 
 // |||||| CORE ||||||
@@ -56,7 +66,7 @@ func (c *core[S]) GetState() S {
 // |||||| OBSERVABLE ||||||
 
 // Observable is a wrapper around a Store that allows the caller to observe
-// State changes. To create a new store.Observable, called store.ObservableWrap().
+// State changes. ToAddr create a new store.Observable, called store.ObservableWrap().
 type Observable[S State] interface {
 	Store[S]
 	observe.Observable[S]

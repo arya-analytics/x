@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/shutdown"
+	"time"
 )
 
 // |||||| VALUE ||||||
@@ -68,8 +69,8 @@ func DefaultContext() Context {
 // and sends them to the appropriate output streams. Switch is a more efficient implementation of
 // Map for when the addresses of input streams are not important.
 type Switch[V Value] struct {
-	// Route is a function that resolves the address of a Value.
-	Route  func(v V) address.Address
+	// Switch is a function that resolves the address of a Value.
+	Switch func(v V) address.Address
 	inFrom []Outlet[V]
 	outTo  map[address.Address]Inlet[V]
 }
@@ -99,12 +100,44 @@ func (r *Switch[V]) Flow(ctx Context) {
 				case <-sig:
 					return nil
 				case v := <-outlet.Outlet():
-					addr := r.Route(v)
+					addr := r.Switch(v)
 					inlet, ok := r.outTo[addr]
 					if !ok {
 						panic("address not found")
 					}
 					inlet.Inlet() <- v
+				}
+			}
+		})
+	}
+}
+
+type BatchSwitch[V Value] struct {
+	Switch func(V) map[address.Address]V
+	sw     Switch[V]
+}
+
+func (b *BatchSwitch[V]) InFrom(outlets ...Outlet[V]) { b.sw.InFrom(outlets...) }
+
+func (b *BatchSwitch[V]) OutTo(inlets ...Inlet[V]) { b.sw.OutTo(inlets...) }
+
+func (b *BatchSwitch[V]) Flow(ctx Context) {
+	for _, outlet := range b.sw.inFrom {
+		outlet = outlet
+		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
+			for {
+				select {
+				case <-sig:
+					return nil
+				case v := <-outlet.Outlet():
+					addrMap := b.Switch(v)
+					for addr, batch := range addrMap {
+						inlet, ok := b.sw.outTo[addr]
+						if !ok {
+							panic("address not found")
+						}
+						inlet.Inlet() <- batch
+					}
 				}
 			}
 		})
@@ -207,7 +240,7 @@ func (f *Transform[V]) Flow(ctx Context) {
 			select {
 			case <-sig:
 				return nil
-			case f.outTo.Inlet() <- f.Transform(<-f.inFrom.Outlet()):
+			case f.Out.Inlet() <- f.Transform(<-f.In.Outlet()):
 			}
 		}
 	})
@@ -230,9 +263,9 @@ func (f *Filter[V]) Flow(ctx Context) {
 			select {
 			case <-sig:
 				return nil
-			case v := <-f.inFrom.Outlet():
+			case v := <-f.In.Outlet():
 				if f.Filter(v) {
-					f.outTo.Inlet() <- v
+					f.Out.Inlet() <- v
 				} else if f.Rejects != nil {
 					f.Rejects.Inlet() <- v
 				}
@@ -245,27 +278,27 @@ func (f *Filter[V]) Flow(ctx Context) {
 
 // Linear is a segment that reads values from a single input streamImpl and pipes them to a single output streamImpl.
 type Linear[V Value] struct {
-	inFrom Outlet[V]
-	outTo  Inlet[V]
+	In  Outlet[V]
+	Out Inlet[V]
 }
 
 // InFrom implements the Segment interface.
 func (l *Linear[V]) InFrom(outlets ...Outlet[V]) {
-	if l.inFrom != nil {
-		panic("inFrom already set")
+	if l.In != nil {
+		panic("In already set")
 	}
 	if len(outlets) != 1 {
-		panic("linear inFrom must have exactly one outlets")
+		panic("linear In must have exactly one outlets")
 	}
-	l.inFrom = outlets[0]
+	l.In = outlets[0]
 }
 
 // OutTo implements the Segment interface.
 func (l *Linear[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) != 1 {
-		panic("linear inFrom must have exactly one outlets")
+		panic("linear In must have exactly one outlets")
 	}
-	l.outTo = inlets[0]
+	l.Out = inlets[0]
 }
 
 // Flow implements the Segment interface.
@@ -275,7 +308,7 @@ func (l *Linear[V]) Flow(ctx Context) {
 			select {
 			case <-sig:
 				return nil
-			case l.outTo.Inlet() <- <-l.inFrom.Outlet():
+			case l.Out.Inlet() <- <-l.In.Outlet():
 			}
 		}
 	})
@@ -325,4 +358,23 @@ func (m *Map[V]) Flow(ctx Context) {
 			}
 		})
 	}
+}
+
+// |||||| EMITTER ||||||
+
+type Emitter[V Value] struct {
+	Emit     func() V
+	Store    func(V)
+	Interval time.Duration
+	Linear[V]
+}
+
+func (e *Emitter[V]) Flow(ctx Context) {
+	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
+		for batch := range e.In.Outlet() {
+			e.Store(batch)
+		}
+		return nil
+	})
+	ctx.Shutdown.GoTick(1*time.Second, func() error { e.Out.Inlet() <- e.Emit(); return nil })
 }

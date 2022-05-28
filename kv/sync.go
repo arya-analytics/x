@@ -18,7 +18,7 @@ type FlushLoader interface {
 	Loader
 }
 
-func Flush(kv KV, key []byte, flusher Flusher) error {
+func Flush(kv Writer, key []byte, flusher Flusher) error {
 	b := new(bytes.Buffer)
 	if err := flusher.Flush(b); err != nil {
 		return err
@@ -26,7 +26,7 @@ func Flush(kv KV, key []byte, flusher Flusher) error {
 	return kv.Set(key, b.Bytes())
 }
 
-func Load(kv KV, key []byte, loader Loader) error {
+func Load(kv Reader, key []byte, loader Loader) error {
 	b, err := kv.Get(key)
 	if err != nil {
 		return err

@@ -14,7 +14,7 @@ var _ = Describe("Pipeline", func() {
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
 		pipe.InFrom(inlet)
 		pipe.OutTo(outlet)
-		pipe.Segment("router", &confluence.Switch[int]{Route: func(i int) address.Address {
+		pipe.Segment("router", &confluence.Switch[int]{Switch: func(i int) address.Address {
 			if i%2 == 0 {
 				return "single"
 			} else {
