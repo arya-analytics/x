@@ -14,7 +14,7 @@ var _ = Describe("Pipeline", func() {
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
 		pipe.InFrom(inlet)
 		pipe.OutTo(outlet)
-		pipe.Segment("router", &confluence.Switch[int]{Switch: func(i int) address.Address {
+		pipe.Segment("router", &confluence.Switch[int]{Switch: func(ctx confluence.Context, i int) address.Address {
 			if i%2 == 0 {
 				return "single"
 			} else {
@@ -22,8 +22,10 @@ var _ = Describe("Pipeline", func() {
 			}
 		}})
 		Expect(pipe.RouteInletTo("router")).To(Succeed())
-		pipe.Segment("single", &confluence.Transform[int]{Transform: func(i int) int { return i * i }})
-		pipe.Segment("double", &confluence.Transform[int]{Transform: func(i int) int { return i * i * 2 }})
+		t1 := &confluence.Transform[int]{Transform: func(ctx confluence.Context, i int) (int, bool) { return i * i, true }}
+		t2 := &confluence.Transform[int]{Transform: func(ctx confluence.Context, i int) (int, bool) { return i * i * 2, true }}
+		pipe.Segment("single", t1)
+		pipe.Segment("double", t2)
 		Expect(pipe.Route(confluence.MultiRouter[int]{
 			FromAddresses: []address.Address{"router"},
 			ToAddresses:   []address.Address{"single", "double"},

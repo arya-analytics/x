@@ -70,7 +70,7 @@ func DefaultContext() Context {
 // Map for when the addresses of input streams are not important.
 type Switch[V Value] struct {
 	// Switch is a function that resolves the address of a Value.
-	Switch func(v V) address.Address
+	Switch func(ctx Context, value V) address.Address
 	inFrom []Outlet[V]
 	outTo  map[address.Address]Inlet[V]
 }
@@ -100,7 +100,7 @@ func (r *Switch[V]) Flow(ctx Context) {
 				case <-sig:
 					return nil
 				case v := <-outlet.Outlet():
-					addr := r.Switch(v)
+					addr := r.Switch(ctx, v)
 					if addr == "" {
 						continue
 					}
@@ -116,7 +116,7 @@ func (r *Switch[V]) Flow(ctx Context) {
 }
 
 type BatchSwitch[V Value] struct {
-	Switch func(V) map[address.Address]V
+	Switch func(ctx Context, value V) map[address.Address]V
 	sw     Switch[V]
 }
 
@@ -133,7 +133,7 @@ func (b *BatchSwitch[V]) Flow(ctx Context) {
 				case <-sig:
 					return nil
 				case v := <-outlet.Outlet():
-					addrMap := b.Switch(v)
+					addrMap := b.Switch(ctx, v)
 					for addr, batch := range addrMap {
 						inlet, ok := b.sw.outTo[addr]
 						if !ok {
@@ -152,23 +152,23 @@ func (b *BatchSwitch[V]) Flow(ctx Context) {
 // Confluence is a segment that reads values from a set of input streams and pipes them to multiple output streams.
 // Every output streamImpl receives a copy of the value.
 type Confluence[V Value] struct {
-	inFrom []Outlet[V]
-	outTo  []Inlet[V]
+	In  []Outlet[V]
+	Out []Inlet[V]
 }
 
 // InFrom implements the Segment interface.
 func (d *Confluence[V]) InFrom(outlets ...Outlet[V]) {
-	d.inFrom = append(d.inFrom, outlets...)
+	d.In = append(d.In, outlets...)
 }
 
 // OutTo implements the Segment interface.
 func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) {
-	d.outTo = append(d.outTo, inlets...)
+	d.Out = append(d.Out, inlets...)
 }
 
 // Flow implements the Segment interface.
 func (d *Confluence[V]) Flow(ctx Context) {
-	for _, outlet := range d.inFrom {
+	for _, outlet := range d.In {
 		outlet = outlet
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
@@ -176,7 +176,7 @@ func (d *Confluence[V]) Flow(ctx Context) {
 				case <-sig:
 					return nil
 				case v := <-outlet.Outlet():
-					for _, inlet := range d.outTo {
+					for _, inlet := range d.Out {
 						inlet.Inlet() <- v
 					}
 				}
@@ -189,23 +189,23 @@ func (d *Confluence[V]) Flow(ctx Context) {
 // Only one output streamImpl receives a copy of each value from input streamImpl. This value is taken by the first
 // inlet that can accept it.
 type Delta[V Value] struct {
-	inFrom []Outlet[V]
-	outTo  []Inlet[V]
+	In  []Outlet[V]
+	Out []Inlet[V]
 }
 
 // InFrom implements the Segment interface.
 func (d *Delta[V]) InFrom(outlets ...Outlet[V]) {
-	d.inFrom = append(d.inFrom, outlets...)
+	d.In = append(d.In, outlets...)
 }
 
 // OutTo implements the Segment interface.
 func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
-	d.outTo = append(d.outTo, inlets...)
+	d.Out = append(d.Out, inlets...)
 }
 
 // Flow implements the Segment interface.
 func (d *Delta[V]) Flow(ctx Context) {
-	for _, outlet := range d.inFrom {
+	for _, outlet := range d.In {
 		outlet = outlet
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
@@ -214,7 +214,7 @@ func (d *Delta[V]) Flow(ctx Context) {
 					return nil
 				case v := <-outlet.Outlet():
 				o:
-					for _, inlet := range d.outTo {
+					for _, inlet := range d.Out {
 						select {
 						case inlet.Inlet() <- v:
 							break o
@@ -232,7 +232,7 @@ func (d *Delta[V]) Flow(ctx Context) {
 // Transform is a segment that reads values from an input streamImpl, executes a transformation on them,
 // and sends them to an out Stream.
 type Transform[V Value] struct {
-	Transform func(V) V
+	Transform func(ctx Context, value V) (V, bool)
 	Linear[V]
 }
 
@@ -243,7 +243,10 @@ func (f *Transform[V]) Flow(ctx Context) {
 			select {
 			case <-sig:
 				return nil
-			case f.Out.Inlet() <- f.Transform(<-f.In.Outlet()):
+			case v := <-f.In.Outlet():
+				if tv, ok := f.Transform(ctx, v); ok {
+					f.Out.Inlet() <- tv
+				}
 			}
 		}
 	})
@@ -254,7 +257,7 @@ func (f *Transform[V]) Flow(ctx Context) {
 // Filter is a segment that reads values from an input Stream, filters them through a function, and
 // optionally discards them to an output Stream.
 type Filter[V Value] struct {
-	Filter  func(V) bool
+	Filter  func(ctx Context, value V) bool
 	Rejects Inlet[V]
 	Linear[V]
 }
@@ -267,7 +270,7 @@ func (f *Filter[V]) Flow(ctx Context) {
 			case <-sig:
 				return nil
 			case v := <-f.In.Outlet():
-				if f.Filter(v) {
+				if f.Filter(ctx, v) {
 					f.Out.Inlet() <- v
 				} else if f.Rejects != nil {
 					f.Rejects.Inlet() <- v
@@ -322,41 +325,41 @@ func (l *Linear[V]) Flow(ctx Context) {
 // Map is a segment that reads values from an addresses input streamImpl, maps them to an output address, and
 // sends them. Map is a relatively inefficient Segment, use Switch when possible.
 type Map[V Value] struct {
-	Map    func(addr address.Address, v Value) address.Address
-	inFrom map[address.Address]Outlet[V]
-	outTo  map[address.Address]Inlet[V]
+	Map func(ctx Context, addr address.Address, v Value) address.Address
+	In  map[address.Address]Outlet[V]
+	Out map[address.Address]Inlet[V]
 }
 
 // InFrom implements the Segment interface.
 func (m *Map[V]) InFrom(outlet ...Outlet[V]) {
-	if m.inFrom == nil {
-		m.inFrom = make(map[address.Address]Outlet[V])
+	if m.In == nil {
+		m.In = make(map[address.Address]Outlet[V])
 	}
 	for _, o := range outlet {
-		m.inFrom[o.OutletAddress()] = o
+		m.In[o.OutletAddress()] = o
 	}
 }
 
 // OutTo implements the Segment interface.
 func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
-	if m.outTo == nil {
-		m.outTo = make(map[address.Address]Inlet[V])
+	if m.Out == nil {
+		m.Out = make(map[address.Address]Inlet[V])
 	}
 	for _, i := range inlet {
-		m.outTo[i.InletAddress()] = i
+		m.Out[i.InletAddress()] = i
 	}
 }
 
 // Flow implements the Segment interface.
 func (m *Map[V]) Flow(ctx Context) {
-	for inAddr, outlet := range m.inFrom {
+	for inAddr, outlet := range m.In {
 		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 			for {
 				select {
 				case <-sig:
 					return nil
 				case v := <-outlet.Outlet():
-					m.outTo[m.Map(inAddr, v)].Inlet() <- v
+					m.Out[m.Map(ctx, inAddr, v)].Inlet() <- v
 				}
 			}
 		})
@@ -366,8 +369,8 @@ func (m *Map[V]) Flow(ctx Context) {
 // |||||| EMITTER ||||||
 
 type Emitter[V Value] struct {
-	Emit     func() V
-	Store    func(V)
+	Emit     func(ctx Context) V
+	Store    func(ctx Context, value V)
 	Interval time.Duration
 	Linear[V]
 }
@@ -375,9 +378,9 @@ type Emitter[V Value] struct {
 func (e *Emitter[V]) Flow(ctx Context) {
 	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for batch := range e.In.Outlet() {
-			e.Store(batch)
+			e.Store(ctx, batch)
 		}
 		return nil
 	})
-	ctx.Shutdown.GoTick(1*time.Second, func() error { e.Out.Inlet() <- e.Emit(); return nil })
+	ctx.Shutdown.GoTick(1*time.Second, func() error { e.Out.Inlet() <- e.Emit(ctx); return nil })
 }
