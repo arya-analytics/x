@@ -101,6 +101,9 @@ func (r *Switch[V]) Flow(ctx Context) {
 					return nil
 				case v := <-outlet.Outlet():
 					addr := r.Switch(v)
+					if addr == "" {
+						continue
+					}
 					inlet, ok := r.outTo[addr]
 					if !ok {
 						panic("address not found")

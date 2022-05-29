@@ -2,6 +2,7 @@ package confluence
 
 import (
 	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/util/errutil"
 )
 
 // Pipeline is a segment that allows the caller to compose a set of sub-segments in a routed manner.
@@ -23,6 +24,10 @@ func NewPipeline[V Value]() *Pipeline[V] {
 
 // Route applies the given router to the Pipeline.
 func (p *Pipeline[V]) Route(router Router[V]) error { return router.Route(p) }
+
+func (p *Pipeline[V]) NewRouteBuilder() *RouteBuilder[V] {
+	return &RouteBuilder[V]{CatchSimple: *errutil.NewCatchSimple(), Pipeline: p}
+}
 
 func (p *Pipeline[V]) route(from address.Address, to address.Address, stream Stream[V]) error {
 	fromSeg, ok := p.getSegment(from)
