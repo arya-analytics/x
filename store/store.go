@@ -15,14 +15,18 @@ type State = any
 
 // Reader is a readable Store.
 type Reader[S State] interface {
-	// GetState returns a copy of the current state.
-	GetState() S
+	// CopyState returns a copy of the current state.
+	CopyState() S
+	// ReadState returns a read-only view of the current state.
+	// Modifications to the returned state may cause undefined behavior.
+	ReadState() S
 }
 
 // Writer is a writable Store.
 type Writer[S State] interface {
 	// SetState sets the state of the store. This is NOT a copy-on write operation,
-	// so make sure to provide a copy of the state.
+	// so make sure to provide a copy of the state (i.e. use Reader.CopyState when
+	// reading for write).
 	SetState(S)
 }
 
@@ -56,11 +60,18 @@ func (c *core[S]) SetState(state S) {
 	c.state = state
 }
 
-// GetState implements Store.
-func (c *core[S]) GetState() S {
+// CopyState implements Store.
+func (c *core[S]) CopyState() S {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.copy(c.state)
+}
+
+// ReadState implements Store.
+func (c *core[S]) ReadState() S {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.state
 }
 
 // |||||| OBSERVABLE ||||||
@@ -81,7 +92,7 @@ func ObservableWrap[S State](store Store[S]) Observable[S] {
 	return &observable[S]{Store: store, Observer: observe.New[S]()}
 }
 
-// SetState implements Store.GetState.
+// SetState implements Store.CopyState.
 func (o *observable[S]) SetState(state S) {
 	o.Store.SetState(state)
 	o.Observer.Notify(state)

@@ -22,7 +22,7 @@ var _ = Describe("Store", func() {
 	Describe("core", func() {
 		It("Should initialize a basic store correctly", func() {
 			s := store.New(copyState)
-			state := s.GetState()
+			state := s.CopyState()
 			Expect(state.value).To(Equal(0))
 		})
 	})
