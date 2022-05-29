@@ -62,7 +62,9 @@ func (s *base) GoTick(interval time.Duration, f func() error, opts ...GoOption) 
 			case <-sig:
 				return nil
 			case <-ticker.C:
-				c.Exec(opt.ctx.Err)
+				if opt.ctx != nil {
+					c.Exec(opt.ctx.Err)
+				}
 				c.Exec(f)
 				if c.Error() != nil && opt.pipe == nil {
 					return c.Error()

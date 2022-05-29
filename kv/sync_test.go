@@ -40,7 +40,7 @@ var _ = Describe("SendSync", Ordered, func() {
 			Expect(kv.Flush(kve, []byte("test-key-1"), flushLoader{bytes: []byte{1, 2, 3}})).To(Succeed())
 		})
 	})
-	Describe("Load", func() {
+	Describe("lodateMetaData", func() {
 		It("Should load correctly", func() {
 			Expect(kv.Flush(kve, []byte("test-key-1"), flushLoader{bytes: []byte{1, 2, 3}})).To(Succeed())
 			resFL := &flushLoader{}

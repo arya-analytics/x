@@ -9,5 +9,5 @@ import (
 
 func TestFilter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Where Suite")
+	RunSpecs(t, "where Suite")
 }

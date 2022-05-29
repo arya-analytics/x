@@ -48,8 +48,15 @@ func (n *Network[REQ, RES]) Route(addr address.Address) *Unary[REQ, RES] {
 	return t
 }
 
-func (n *Network[REQ, RES]) Send(ctx context.Context, addr address.Address, req REQ) (RES, error) {
-	res, err := n.Routes[addr].Handler(ctx, req)
+func (n *Network[REQ, RES]) Send(ctx context.Context, addr address.Address, req REQ) (res RES, err error) {
+	route, ok := n.Routes[addr]
+	if !ok {
+		return res, fmt.Errorf("no route to %v", addr)
+	}
+	if route.Handler == nil {
+		return res, fmt.Errorf("no handler for %v", addr)
+	}
+	res, err = route.Handler(ctx, req)
 	n.appendEntry(addr, req, res, err)
 	return res, err
 }

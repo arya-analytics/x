@@ -290,9 +290,6 @@ type Linear[V Value] struct {
 
 // InFrom implements the Segment interface.
 func (l *Linear[V]) InFrom(outlets ...Outlet[V]) {
-	if l.In != nil {
-		panic("In already set")
-	}
 	if len(outlets) != 1 {
 		panic("linear In must have exactly one outlets")
 	}
@@ -382,5 +379,5 @@ func (e *Emitter[V]) Flow(ctx Context) {
 		}
 		return nil
 	})
-	ctx.Shutdown.GoTick(1*time.Second, func() error { e.Out.Inlet() <- e.Emit(ctx); return nil })
+	ctx.Shutdown.GoTick(e.Interval, func() error { e.Out.Inlet() <- e.Emit(ctx); return nil })
 }

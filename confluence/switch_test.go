@@ -59,7 +59,6 @@ var _ = Describe("Switch", func() {
 		close(stream2.Inlet())
 		count := 0
 		for range single.Outlet() {
-			//log.Info(count)
 			count++
 			if count == 4 {
 				break

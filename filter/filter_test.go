@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Where", func() {
+var _ = Describe("where", func() {
 	Describe("Map", func() {
 		Describe("Exclude", func() {
 			It("Should exclude the given keys", func() {

@@ -15,7 +15,7 @@ type Sink[V Value] interface {
 // CoreSink is a basic implementation of Sink. It implements the Segment
 // interface, but will panic if any inlets are added.
 type CoreSink[V Value] struct {
-	Sink   func(V) error
+	Sink   func(ctx Context, value V)
 	inFrom []Outlet[V]
 }
 
@@ -35,24 +35,9 @@ func (s *CoreSink[V]) Flow(ctx Context) {
 				case <-sig:
 					return nil
 				case v := <-outlet.Outlet():
-					if err := s.Sink(v); err != nil {
-						return err
-					}
+					s.Sink(ctx, v)
 				}
 			}
 		})
 	}
-}
-
-type Reader[V Value] struct {
-	CoreSink[V]
-	Values chan<- V
-}
-
-func (r *Reader[V]) Flow(ctx Context) {
-	r.Sink = func(v V) error {
-		r.Values <- v
-		return nil
-	}
-	r.CoreSink.Flow(ctx)
 }
