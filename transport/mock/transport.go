@@ -9,7 +9,7 @@ import (
 )
 
 type Unary[
-	REQ transport.Request,
+	REQ transport.Message,
 	RES transport.Response] struct {
 	Address address.Address
 	Network *Network[REQ, RES]
@@ -25,16 +25,16 @@ func (t *Unary[REQ, RES]) Handle(handler func(context.Context, REQ) (RES, error)
 }
 
 type Network[
-	REQ transport.Request,
+	REQ transport.Message,
 	RES transport.Response] struct {
 	mu      sync.Mutex
 	Entries []NetworkEntry[REQ, RES]
 	Routes  map[address.Address]*Unary[REQ, RES]
 }
 
-type NetworkEntry[REQ transport.Request, RES transport.Response] struct {
+type NetworkEntry[REQ transport.Message, RES transport.Response] struct {
 	Address address.Address
-	REQ     transport.Request
+	REQ     transport.Message
 	RES     transport.Response
 	Error   error
 }
@@ -67,6 +67,6 @@ func (n *Network[REQ, RES]) appendEntry(addr address.Address, req REQ, res RES, 
 	n.Entries = append(n.Entries, NetworkEntry[REQ, RES]{Address: addr, REQ: req, RES: res, Error: err})
 }
 
-func NewNetwork[REQ transport.Request, RES transport.Response]() *Network[REQ, RES] {
+func NewNetwork[REQ transport.Message, RES transport.Response]() *Network[REQ, RES] {
 	return &Network[REQ, RES]{Routes: make(map[address.Address]*Unary[REQ, RES])}
 }
