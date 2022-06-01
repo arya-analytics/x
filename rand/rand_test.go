@@ -52,7 +52,7 @@ var _ = Describe("Rand", func() {
 			value := rand.Slice([]int{1, 2, 3, 4, 5, 6})
 			Expect(value > 0).To(BeTrue())
 		})
-		Describe("Sub Slice", func() {
+		Describe("sub Slice", func() {
 			It("Should return random sub-slice", func() {
 				value := rand.SubSlice([]int{1, 2, 3, 4, 5, 6}, 2)
 				Expect(len(value)).To(Equal(2))

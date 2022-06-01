@@ -1,8 +1,8 @@
 package kv
 
 import (
-	"errors"
 	"github.com/arya-analytics/x/binary"
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"io"
 )

@@ -3,7 +3,7 @@ package alamos
 // |||||| EXPERIMENT ||||||
 
 // Experiment is alamos' core data type. It represents a hierarchical collection of application metrics.
-// Experiment is a tree-like structure where each node is either a metric or a sub-experiment.
+// Experiment is a tree-like structure where each node is either a metric or a Sub-experiment.
 //
 // Creating Experiments:
 //
@@ -32,8 +32,8 @@ package alamos
 //		g := exp.NewGauge(exp, "bar")
 // 		g.Record(1)
 //
-// The same principle applies for sub-experiments. If a parent Experiment is empty and Sub is called, the returned
-// sub-experiment will be empty as well.
+// The same principle applies for Sub-experiments. If a parent Experiment is empty and Sub is called, the returned
+// Sub-experiment will be empty as well.
 //
 // Organizing Experiments:
 //
@@ -48,6 +48,8 @@ type Experiment interface {
 	sub(string) Experiment
 	getMetric(string) baseMetric
 	addMetric(metric baseMetric)
+	attachReport(string, Report)
+	attachReporter(string, Reporter)
 }
 
 // New creates a new experiment with the given key.
@@ -56,11 +58,13 @@ func New(key string) Experiment {
 		key:          key,
 		children:     make(map[string]Experiment),
 		measurements: make(map[string]baseMetric),
+		reports:      make(map[string]Report),
+		reporters:    make(map[string]Reporter),
 	}
 }
 
-// Sub creates a new sub-experiment with the given name and adds it to the given experiment.
-// If exp is nil, the new sub-experiment is NOT created, and instead the function returns nil.
+// Sub creates a new Sub-experiment with the given name and adds it to the given experiment.
+// If exp is nil, the new Sub-experiment is NOT created, and instead the function returns nil.
 func Sub(exp Experiment, key string) Experiment {
 	if exp == nil {
 		return nil
@@ -79,6 +83,8 @@ type experiment struct {
 	key          string
 	children     map[string]Experiment
 	measurements map[string]baseMetric
+	reports      map[string]Report
+	reporters    map[string]Reporter
 }
 
 func (e *experiment) Key() string {

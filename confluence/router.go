@@ -1,8 +1,8 @@
 package confluence
 
 import (
-	"errors"
 	"github.com/arya-analytics/x/address"
+	"github.com/cockroachdb/errors"
 )
 
 // Stitch is the method a Router  uses to stitch together the segments specified in its route.

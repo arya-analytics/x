@@ -1,6 +1,9 @@
 package kv
 
-import "github.com/cockroachdb/pebble"
+import (
+	"fmt"
+	"github.com/cockroachdb/pebble"
+)
 
 // |||||| ENGINE ||||||
 
@@ -30,6 +33,8 @@ type KV interface {
 	Writer
 	Reader
 	Closer
+	// Stringer returns a string description of the KV. Used for logging and configuration.
+	fmt.Stringer
 }
 
 type IteratorEngine interface {

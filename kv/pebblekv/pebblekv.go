@@ -55,3 +55,5 @@ func (kv pebbleKV) IterPrefix(prefix []byte) kvc.Iterator {
 func (kv pebbleKV) IterRange(start, end []byte) kvc.Iterator {
 	return kv.DB.NewIter(&pebble.IterOptions{LowerBound: start, UpperBound: end})
 }
+
+func (kv pebbleKV) String() string { return "pebbleKV" }

@@ -2,9 +2,9 @@ package errutil_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/arya-analytics/x/util/errutil"
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sync"
