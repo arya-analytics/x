@@ -3,6 +3,7 @@ package binary
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"io"
 	"math"
 )
@@ -34,3 +35,7 @@ func ToFloat64(b []byte) []float64 {
 	}
 	return f64
 }
+
+func Flush(w io.Writer, data interface{}) error { return gob.NewEncoder(w).Encode(data) }
+
+func Load(r io.Reader, data interface{}) error { return gob.NewDecoder(r).Decode(data) }

@@ -28,8 +28,8 @@ type core[K comparable, A Adapter] struct {
 }
 
 func (p *core[K, A]) Acquire(key K) (A, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if adapters, ok := p.pool[key]; ok {
 		for _, adapter := range adapters {
 			if adapter.Healthy() {
@@ -40,12 +40,10 @@ func (p *core[K, A]) Acquire(key K) (A, error) {
 	return p.new(key)
 }
 
-func (p *core[K, A]) new(key K) (A, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	a, err := p.factory.New(key)
+func (p *core[K, A]) new(key K) (a A, err error) {
+	a, err = p.factory.New(key)
 	if err != nil {
-		return nil, err
+		return a, err
 	}
 	p.pool[key] = append(p.pool[key], a)
 	return a, nil
