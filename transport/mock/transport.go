@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/freighter"
+	"github.com/arya-analytics/x/transport"
 	"sync"
 )
 
 type Unary[
-	REQ freighter.Message,
-	RES freighter.Response] struct {
+	REQ transport.Message,
+	RES transport.Message] struct {
 	Address address.Address
 	Network *Network[REQ, RES]
 	Handler func(context.Context, REQ) (RES, error)
@@ -25,17 +25,17 @@ func (t *Unary[REQ, RES]) Handle(handler func(context.Context, REQ) (RES, error)
 }
 
 type Network[
-	REQ freighter.Message,
-	RES freighter.Response] struct {
+	REQ transport.Message,
+	RES transport.Message] struct {
 	mu      sync.Mutex
 	Entries []NetworkEntry[REQ, RES]
 	Routes  map[address.Address]*Unary[REQ, RES]
 }
 
-type NetworkEntry[REQ freighter.Message, RES freighter.Response] struct {
+type NetworkEntry[REQ transport.Message, RES transport.Message] struct {
 	Address address.Address
-	REQ     freighter.Message
-	RES     freighter.Response
+	REQ     transport.Message
+	RES     transport.Message
 	Error   error
 }
 
@@ -67,6 +67,6 @@ func (n *Network[REQ, RES]) appendEntry(addr address.Address, req REQ, res RES, 
 	n.Entries = append(n.Entries, NetworkEntry[REQ, RES]{Address: addr, REQ: req, RES: res, Error: err})
 }
 
-func NewNetwork[REQ freighter.Message, RES freighter.Response]() *Network[REQ, RES] {
+func NewNetwork[REQ transport.Message, RES transport.Message]() *Network[REQ, RES] {
 	return &Network[REQ, RES]{Routes: make(map[address.Address]*Unary[REQ, RES])}
 }

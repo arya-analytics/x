@@ -1,4 +1,4 @@
-package freighter
+package transport
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 type Message interface{}
 
-type Unary[I, O] interface {
+type Unary[I, O Message] interface {
 	UnaryClient[I, O]
 	UnaryServer[I, O]
 }
@@ -20,7 +20,7 @@ type UnaryServer[I, O Message] interface {
 	Handle(func(context.Context, I) (O, error))
 }
 
-type Stream[I, O] interface {
+type Stream[I, O Message] interface {
 	StreamClient[I, O]
 	StreamServer[I, O]
 }
