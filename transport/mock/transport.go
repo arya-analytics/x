@@ -24,6 +24,8 @@ func (t *Unary[REQ, RES]) Handle(handler func(context.Context, REQ) (RES, error)
 	t.Handler = handler
 }
 
+func (t *Unary[REQ, RES]) String() string { return fmt.Sprintf("mock.Unary{} at %s", t.Address) }
+
 type Network[
 	REQ transport.Message,
 	RES transport.Message] struct {
