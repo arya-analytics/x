@@ -63,14 +63,10 @@ type emptyStopwatch struct{}
 func (s emptyStopwatch) Start() {}
 
 // Stop implement Stopwatch.
-func (s emptyStopwatch) Stop() time.Duration {
-	return 0
-}
+func (s emptyStopwatch) Stop() time.Duration { return 0 }
 
 // Elapsed implement Stopwatch.
-func (s emptyStopwatch) Elapsed() time.Duration {
-	return 0
-}
+func (s emptyStopwatch) Elapsed() time.Duration { return 0 }
 
 // |||||| BASE ||||||
 
@@ -84,46 +80,40 @@ func (d *duration) Stopwatch() Stopwatch {
 }
 
 // NewSeriesDuration returns a new Duration metric that records all duration values in a Series.
-func NewSeriesDuration(exp Experiment, key string) Duration {
-	if m := nilDurationMeasurement(exp, key); m != nil {
+func NewSeriesDuration(exp Experiment, level Level, key string) Duration {
+	if m := emptyDurationMetric(exp, level, key); m != nil {
 		return m
 	}
-	return &duration{Metric: NewSeries[time.Duration](exp, key)}
+	return &duration{Metric: NewSeries[time.Duration](exp, level, key)}
 }
 
 // NewGaugeDuration returns a new Duration metric that records all duration values in a Gauge.
-func NewGaugeDuration(exp Experiment, key string) Duration {
-	if m := nilDurationMeasurement(exp, key); m != nil {
+func NewGaugeDuration(exp Experiment, level Level, key string) Duration {
+	if m := emptyDurationMetric(exp, level, key); m != nil {
 		return m
 	}
-	return &duration{Metric: NewGauge[time.Duration](exp, key)}
+	return &duration{Metric: NewGauge[time.Duration](exp, level, key)}
 }
 
 // |||||| EMPTY ||||||
 
-type emptyDurationMeasurement struct {
+type emptyDuration struct {
 	Metric[time.Duration]
 }
 
-func (e emptyDurationMeasurement) Record(time.Duration) {}
+func (e emptyDuration) Record(time.Duration) {}
 
-func (e emptyDurationMeasurement) Start() {}
+func (e emptyDuration) Start() {}
 
-func (e emptyDurationMeasurement) Stop() time.Duration {
-	return 0
-}
+func (e emptyDuration) Stop() time.Duration { return 0 }
 
-func (e emptyDurationMeasurement) Stopwatch() Stopwatch {
-	return &emptyStopwatch{}
-}
+func (e emptyDuration) Stopwatch() Stopwatch { return &emptyStopwatch{} }
 
-func (e emptyDurationMeasurement) Values() []time.Duration {
-	return []time.Duration{}
-}
+func (e emptyDuration) Values() []time.Duration { return []time.Duration{} }
 
-func nilDurationMeasurement(exp Experiment, key string) Duration {
-	if exp != nil {
+func emptyDurationMetric(exp Experiment, level Level, key string) Duration {
+	if exp != nil && exp.filterTest(level) {
 		return nil
 	}
-	return emptyDurationMeasurement{Metric: emptyMetric[time.Duration](exp, key)}
+	return emptyDuration{Metric: emptyMetric[time.Duration](exp, level, key)}
 }

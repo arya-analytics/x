@@ -11,18 +11,18 @@ type Reporter interface {
 
 type Report map[string]interface{}
 
-func AttachReport(exp Experiment, key string, rep Report) {
+func AttachReport(exp Experiment, key string, level Level, rep Report) {
 	if exp == nil {
 		return
 	}
-	exp.attachReport(key, rep)
+	exp.attachReport(key, level, rep)
 }
 
-func AttachReporter(exp Experiment, key string, report Reporter) {
+func AttachReporter(exp Experiment, key string, level Level, report Reporter) {
 	if exp == nil {
 		return
 	}
-	exp.attachReporter(key, report)
+	exp.attachReporter(key, level, report)
 }
 
 // JSON writes the report as JSON as bytes.
@@ -61,10 +61,14 @@ func (e *experiment) Report() Report {
 	return report
 }
 
-func (e *experiment) attachReport(key string, r Report) {
-	e.reports[key] = r
+func (e *experiment) attachReport(key string, level Level, r Report) {
+	if e.filterTest(level) {
+		e.reports[key] = r
+	}
 }
 
-func (e *experiment) attachReporter(key string, r Reporter) {
-	e.reporters[key] = r
+func (e *experiment) attachReporter(key string, level Level, r Reporter) {
+	if e.filterTest(level) {
+		e.reporters[key] = r
+	}
 }

@@ -45,21 +45,24 @@ type Experiment interface {
 	Key() string
 	// Report returns a report of all the experiment's metrics.
 	Report() Report
+	filterTest(level Level) bool
 	sub(string) Experiment
 	getMetric(string) baseMetric
 	addMetric(metric baseMetric)
-	attachReport(string, Report)
-	attachReporter(string, Reporter)
+	attachReport(string, Level, Report)
+	attachReporter(string, Level, Reporter)
 }
 
 // New creates a new experiment with the given key.
-func New(key string) Experiment {
+func New(key string, opts ...Option) Experiment {
+	o := newOptions(opts...)
 	return &experiment{
 		key:          key,
 		children:     make(map[string]Experiment),
 		measurements: make(map[string]baseMetric),
 		reports:      make(map[string]Report),
 		reporters:    make(map[string]Reporter),
+		options:      o,
 	}
 }
 
@@ -80,6 +83,7 @@ func RetrieveMetric[T any](exp Experiment, key string) Metric[T] {
 }
 
 type experiment struct {
+	options      *options
 	key          string
 	children     map[string]Experiment
 	measurements map[string]baseMetric
@@ -108,4 +112,13 @@ func (e *experiment) addMetric(m baseMetric) {
 func (e *experiment) addSub(key string, exp Experiment) Experiment {
 	e.children[key] = exp
 	return exp
+}
+
+func (e *experiment) filterTest(level Level) bool {
+	for _, filter := range e.options.filters {
+		if filter.Test(level) {
+			return true
+		}
+	}
+	return false
 }

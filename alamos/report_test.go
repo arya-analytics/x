@@ -11,12 +11,12 @@ import (
 var _ = Describe("Report", func() {
 	It("Should write the experiment to JSON", func() {
 		exp := alamos.New("exp")
-		g := alamos.NewGauge[int](exp, "gauge")
+		g := alamos.NewGauge[int](exp, alamos.Debug, "gauge")
 		g.Record(1)
-		g2 := alamos.NewGauge[int](exp, "gauge2")
+		g2 := alamos.NewGauge[int](exp, alamos.Debug, "gauge2")
 		g2.Record(2)
 		sub := alamos.Sub(exp, "sub")
-		g3 := alamos.NewSeries[float64](sub, "gauge3")
+		g3 := alamos.NewSeries[float64](sub, alamos.Debug, "gauge3")
 		g3.Record(3.2)
 		file, _ := json.Marshal(exp.Report())
 		err := ioutil.WriteFile("report.json", file, 0644)
