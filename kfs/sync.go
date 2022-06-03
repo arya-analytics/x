@@ -1,8 +1,8 @@
 package kfs
 
 import (
+	"github.com/arya-analytics/x/errutil"
 	shut "github.com/arya-analytics/x/shutdown"
-	"github.com/arya-analytics/x/util/errutil"
 	"time"
 )
 

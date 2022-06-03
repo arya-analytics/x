@@ -1,7 +1,7 @@
 package confluence
 
 import (
-	"github.com/arya-analytics/x/util/errutil"
+	"github.com/arya-analytics/x/errutil"
 )
 
 type RouteBuilder[V Value] struct {

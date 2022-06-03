@@ -2,7 +2,7 @@ package shutdown
 
 import (
 	"context"
-	"github.com/arya-analytics/x/util/errutil"
+	"github.com/arya-analytics/x/errutil"
 	"sync"
 	"time"
 )

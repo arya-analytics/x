@@ -2,7 +2,7 @@ package confluence
 
 import (
 	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/util/errutil"
+	"github.com/arya-analytics/x/errutil"
 )
 
 // Pipeline is a segment that allows the caller to compose a set of sub-segments in a routed manner.

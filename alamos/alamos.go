@@ -35,6 +35,10 @@ package alamos
 // The same principle applies for Sub-experiments. If a parent Experiment is empty and Sub is called, the returned
 // Sub-experiment will be empty as well.
 //
+// When approaching empty experiments, we considered taking a route similar to zap.NewNop(), but because alamos
+// makes extensive use of generics, and methods can't have type parameters, we decided to try tolerating nil
+// experiments instead.
+//
 // Organizing Experiments:
 //
 // Only one top-level experiment should be created per application. Sub-experiments should be created to separate
@@ -49,7 +53,6 @@ type Experiment interface {
 	sub(string) Experiment
 	getMetric(string) baseMetric
 	addMetric(metric baseMetric)
-	attachReport(string, Level, Report)
 	attachReporter(string, Level, Reporter)
 }
 
@@ -60,7 +63,6 @@ func New(key string, opts ...Option) Experiment {
 		key:          key,
 		children:     make(map[string]Experiment),
 		measurements: make(map[string]baseMetric),
-		reports:      make(map[string]Report),
 		reporters:    make(map[string]Reporter),
 		options:      o,
 	}

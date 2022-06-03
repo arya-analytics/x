@@ -1,7 +1,7 @@
 package errutil_test
 
 import (
-	"github.com/arya-analytics/x/util/errutil"
+	"github.com/arya-analytics/x/errutil"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

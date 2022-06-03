@@ -66,3 +66,14 @@ func Slice[V any](s []V, filter func(V) bool) (f []V) {
 	}
 	return f
 }
+
+func Duplicates[V comparable](in []V) []V {
+	keys, set := make(map[V]bool), make([]V, 0, len(in))
+	for _, e := range in {
+		if _, value := keys[e]; !value {
+			keys[e] = true
+			set = append(set, e)
+		}
+	}
+	return set
+}

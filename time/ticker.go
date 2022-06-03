@@ -1,6 +1,8 @@
 package time
 
-import "time"
+import (
+	"time"
+)
 
 type ScaledTicker struct {
 	C     <-chan time.Duration
@@ -27,9 +29,10 @@ func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
 			select {
 			case <-s:
 				return
-			case c <- t.Dur:
+			default:
+				time.Sleep(t.Dur)
+				t.Dur = time.Duration(float64(t.Dur) * scale)
 				c <- t.Dur
-				t.Dur *= time.Duration(scale)
 			}
 
 		}
