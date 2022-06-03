@@ -5,8 +5,6 @@ import (
 	"github.com/arya-analytics/x/errutil"
 )
 
-// ||||||| GENERATE |||||||
-
 func CompositeKey(elems ...interface{}) ([]byte, error) {
 	b := new(bytes.Buffer)
 	cw := errutil.NewCatchWrite(b)

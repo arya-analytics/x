@@ -1,4 +1,6 @@
-package kvmock
+// Package memkv implements an in-memory key value store using cockroachdb's pebble storage engine.
+// It's particularly useful for testing scenarios.
+package memkv
 
 import (
 	"github.com/arya-analytics/x/kv"
@@ -7,7 +9,8 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 )
 
-func New() kv.KV {
+// Open opens a new in-memory key-value store implementing the kv.KV interface.
+func Open() kv.KV {
 	db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
 	if err != nil {
 		panic(err)
