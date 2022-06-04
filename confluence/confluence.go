@@ -290,16 +290,16 @@ type Linear[V Value] struct {
 
 // InFrom implements the Segment interface.
 func (l *Linear[V]) InFrom(outlets ...Outlet[V]) {
-	if len(outlets) != 1 {
-		panic("linear In must have exactly one outlets")
+	if len(outlets) == 0 {
+		panic("linear must have exactly one outlet")
 	}
 	l.In = outlets[0]
 }
 
 // OutTo implements the Segment interface.
 func (l *Linear[V]) OutTo(inlets ...Inlet[V]) {
-	if len(inlets) != 1 {
-		panic("linear In must have exactly one outlets")
+	if len(inlets) == 0 {
+		panic("linear must have exactly one outlet")
 	}
 	l.Out = inlets[0]
 }

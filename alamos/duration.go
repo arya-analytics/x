@@ -7,7 +7,7 @@ import (
 // |||||| INTERFACE ||||||
 
 // Duration is a metric that measures the execution time of a set of instructions. Values can be recorded either
-// through the Record method or by creating a new Stopwatch and calling its Dur and Stop methods.
+// through the Record method or by creating a new Stopwatch and calling its dur and Stop methods.
 // Duration is go-routine safe.
 type Duration interface {
 	Metric[time.Duration]
@@ -52,7 +52,7 @@ func (s *stopwatch) Stop() time.Duration {
 // Elapsed implement Stopwatch.
 func (s *stopwatch) Elapsed() time.Duration {
 	if s.start.IsZero() {
-		panic("duration defaultBaseMetric not started. please call Dur() first")
+		panic("duration defaultBaseMetric not started. please call dur() first")
 	}
 	return time.Since(s.start)
 }

@@ -1,7 +1,7 @@
 package observe_test
 
 import (
-	"github.com/arya-analytics/x/kv/kvmock"
+	"github.com/arya-analytics/x/kv/memkv"
 	"github.com/arya-analytics/x/observe"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +20,7 @@ func (f simpleFlusher) Flush(w io.Writer) error {
 var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func() {
 		o := observe.New[simpleFlusher]()
-		kv := kvmock.New()
+		kv := memkv.Open()
 		flush := &observe.FlushSubscriber[simpleFlusher]{
 			Key:         []byte("key"),
 			Store:       kv,

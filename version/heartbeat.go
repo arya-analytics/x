@@ -12,23 +12,13 @@ type Heartbeat struct {
 }
 
 // Increment increments the Heartbeat.Version.
-func (h Heartbeat) Increment() Heartbeat {
-	h.Version++
-	return h
-}
+func (h Heartbeat) Increment() Heartbeat { h.Version++; return h }
 
 // Decrement decrements Heartbeat.Version.
-func (h Heartbeat) Decrement() Heartbeat {
-	h.Version--
-	return h
-}
+func (h Heartbeat) Decrement() Heartbeat { h.Version--; return h }
 
 // Restart increments Heartbeat.Generation and resets Heartbeat.Version.
-func (h Heartbeat) Restart() Heartbeat {
-	h.Generation++
-	h.Version = 0
-	return h
-}
+func (h Heartbeat) Restart() Heartbeat { h.Generation++; h.Version = 0; return h }
 
 // OlderThan returns true if the Heartbeat generation or version is greater than other. It's important to note
 // that an older heartbeat means a 'newer' version.
