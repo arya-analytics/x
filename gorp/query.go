@@ -7,13 +7,13 @@ import (
 
 type Query interface {
 	query.Query
-	Variant() Variant
 	Exec(ctx context.Context, db DB) error
+	variant() variant
 }
 
-type Variant byte
+type variant byte
 
 const (
-	VariantRetrieve Variant = iota
-	VariantCreate
+	variantRetrieve variant = iota
+	variantCreate
 )

@@ -27,8 +27,8 @@ func (r Retrieve[E]) WhereKeys(keys ...interface{}) Retrieve[E] { setWhereKeys(r
 // Entries binds a slice that the Query will fill results into.
 func (r Retrieve[E]) Entries(model *[]E) Retrieve[E] { setEntries(r, model); return r }
 
-// Variant implements Query.
-func (r Retrieve[E]) Variant() Variant { return VariantRetrieve }
+// variant implements Query.
+func (r Retrieve[E]) Variant() variant { return variantRetrieve }
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
 func (r Retrieve[E]) Exec(ctx context.Context, db *DB) error {

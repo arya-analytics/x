@@ -17,8 +17,8 @@ func NewCreate[T Entry]() Create[T] { return Create[T]{query.New()} }
 // Entries sets the entries to write to the DB.
 func (c Create[T]) Entries(model *[]T) Create[T] { setEntries(c, model); return c }
 
-// Variant implements Query.
-func (c Create[T]) Variant() Variant { return VariantCreate }
+// variant implements Query.
+func (c Create[T]) Variant() variant { return variantCreate }
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
 func (c Create[T]) Exec(ctx context.Context, db *DB) error {
