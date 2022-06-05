@@ -6,13 +6,17 @@ import (
 	"time"
 )
 
-// Debounce is a simple, goroutine safe queue that flushes data to a channel on a timer or queue size threshold.
-type Debounce[V confluence.Value] struct {
+type DebounceConfig struct {
 	// Interval is the time between flushes.
 	Interval time.Duration
 	// Threshold is the maximum number of values to store in Debounce.
 	// Debounce will flush when this threshold is reached, regardless of the Interval.
 	Threshold int
+}
+
+// Debounce is a simple, goroutine safe queue that flushes data to a channel on a timer or queue size threshold.
+type Debounce[V confluence.Value] struct {
+	DebounceConfig
 	confluence.Linear[[]V]
 }
 
