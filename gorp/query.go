@@ -8,12 +8,4 @@ import (
 type Query interface {
 	query.Query
 	Exec(ctx context.Context, db DB) error
-	variant() variant
 }
-
-type variant byte
-
-const (
-	variantRetrieve variant = iota
-	variantCreate
-)
