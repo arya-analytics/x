@@ -13,7 +13,7 @@ type pebbleKV struct{ *pebble.DB }
 func Wrap(db *pebble.DB) kvc.KV { return &pebbleKV{DB: db} }
 
 // Get implements the kv.KV interface.
-func (kv pebbleKV) Get(key []byte) ([]byte, error) {
+func (kv pebbleKV) Get(key []byte, opts ...interface{}) ([]byte, error) {
 	v, c, err := kv.DB.Get(key)
 	if err != nil {
 		return v, err
@@ -22,7 +22,9 @@ func (kv pebbleKV) Get(key []byte) ([]byte, error) {
 }
 
 // Set implements the kv.KV interface.
-func (kv pebbleKV) Set(key []byte, value []byte) error { return kv.DB.Set(key, value, pebble.NoSync) }
+func (kv pebbleKV) Set(key []byte, value []byte, opts ...interface{}) error {
+	return kv.DB.Set(key, value, pebble.NoSync)
+}
 
 // Delete implements the kv.KV interface.
 func (kv pebbleKV) Delete(key []byte) error { return kv.DB.Delete(key, pebble.NoSync) }
