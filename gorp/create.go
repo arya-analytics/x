@@ -2,34 +2,38 @@ package gorp
 
 import (
 	"context"
-	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/query"
+	"reflect"
 )
 
 // |||||| CREATE ||||||
 
-type Create[T Model] struct{ query.Query }
+// Create is a query that creates entries in the DB.
+type Create[T Entry] struct{ query.Query }
 
-func NewCreate[T Model]() Create[T] { return Create[T]{query.New()} }
+// NewCreate opens a new Create query.
+func NewCreate[T Entry]() Create[T] { return Create[T]{query.New()} }
 
-func (c Create[T]) Model(model *[]T) Create[T] { setModel(c, model); return c }
+// Entries sets the entries to write to the DB.
+func (c Create[T]) Entries(model *[]T) Create[T] { setEntries(c, model); return c }
 
+// Variant implements Query.
 func (c Create[T]) Variant() Variant { return VariantCreate }
 
+// Exec executes the Query against the provided DB. It returns any errors encountered during execution.
 func (c Create[T]) Exec(ctx context.Context, db *DB) error {
 	query.SetContext(c, ctx)
-	return (&createExecutor[T]{kv: db.kv}).Exec(c)
+	return (&createExecutor[T]{DB: db}).Exec(c)
 }
 
 // |||||| EXECUTOR ||||||
 
-type createExecutor[T Model] struct {
-	kv      kv.KV
-	encoder Encoder
-}
+type createExecutor[T Entry] struct{ *DB }
 
 func (c *createExecutor[T]) Exec(q query.Query) error {
-	for _, model := range *getModel[T](q) {
+	models := *getEntries[T](q)
+	prefix := typePrefix(models, c.encoder)
+	for _, model := range models {
 		data, err := c.encoder.Encode(model)
 		if err != nil {
 			return err
@@ -38,9 +42,18 @@ func (c *createExecutor[T]) Exec(q query.Query) error {
 		if err != nil {
 			return err
 		}
-		if err = c.kv.Set(key, data); err != nil {
+		if err = c.kv.Set(append(prefix, key...), data); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func typePrefix[T Entry](m []T, encoder Encoder) []byte {
+	mName := reflect.TypeOf(m).Elem().Name()
+	b, err := encoder.Encode(mName)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }
