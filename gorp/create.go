@@ -31,14 +31,14 @@ func (c Create[T]) Exec(ctx context.Context, db *DB) error {
 type createExecutor[T Entry] struct{ *DB }
 
 func (c *createExecutor[T]) Exec(q query.Query) error {
-	models := *getEntries[T](q)
-	prefix := typePrefix(models, c.encoder)
-	for _, model := range models {
-		data, err := c.encoder.Encode(model)
+	entries := *getEntries[T](q)
+	prefix := typePrefix(entries, c.encoder)
+	for _, entry := range entries {
+		data, err := c.encoder.Encode(entry)
 		if err != nil {
 			return err
 		}
-		key, err := c.encoder.Encode(model.Key())
+		key, err := c.encoder.Encode(entry.Key())
 		if err != nil {
 			return err
 		}

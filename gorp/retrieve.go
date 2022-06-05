@@ -46,6 +46,9 @@ const filtersKey query.OptionKey = "filters"
 type filters[E Entry] []func(E) bool
 
 func (f filters[E]) exec(entry E) bool {
+	if len(f) == 0 {
+		return true
+	}
 	for _, filter := range f {
 		if filter(entry) {
 			return true
@@ -163,15 +166,9 @@ func (r *retrieve[E]) filter(q query.Query) error {
 		if err := r.decoder.Decode(iter.Value(), m); err != nil {
 			return err
 		}
-		if len(f) != 0 {
-			for _, filter := range f {
-				if filter(*m) {
-					*entries = append(*entries, *m)
-				}
-			}
-		} else {
+		if f.exec(*m) {
 			*entries = append(*entries, *m)
 		}
 	}
-	return nil
+	return iter.Close()
 }
