@@ -20,14 +20,14 @@ var ErrNotFound = pebble.ErrNotFound
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
-	Get(key []byte) ([]byte, error)
+	Get(key []byte, opts ...interface{}) ([]byte, error)
 	IteratorEngine
 }
 
 // Writer is a writeable key-value store.
 type Writer interface {
 	// Set sets the value for the given key.
-	Set(key []byte, value []byte) error
+	Set(key []byte, value []byte, opts ...interface{}) error
 	// Delete removes the value for the given key.
 	Delete(key []byte) error
 }
