@@ -1,7 +1,7 @@
 package lock
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 	"sync"
 )
 

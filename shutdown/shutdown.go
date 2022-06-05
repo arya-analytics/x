@@ -1,6 +1,8 @@
 package shutdown
 
 import (
+	"context"
+	"github.com/arya-analytics/x/errutil"
 	"sync"
 	"time"
 )
@@ -11,16 +13,17 @@ const DefaultShutdownThreshold = 10 * time.Second
 
 type Shutdown interface {
 	Go(f func(chan Signal) error, opts ...GoOption)
+	GoTick(interval time.Duration, f func() error, opts ...GoOption)
 	Routines() map[string]int
 	NumRoutines() int
 	Shutdown() error
+	ShutdownAfter(d time.Duration) error
 }
 
 func New(opts ...Option) Shutdown {
-	opt := newOptions(opts...)
 	return &base{
 		signal:   make(chan Signal),
-		opts:     opt,
+		opts:     newOptions(opts...),
 		routines: make(map[string]int),
 		errors:   make(chan error, 10),
 	}
@@ -42,6 +45,33 @@ func (s *base) Go(f func(chan Signal) error, opts ...GoOption) {
 		s.closeRoutine(goOpt.key, err)
 	}()
 	s.addRoutine(goOpt.key)
+}
+
+func (s *base) GoTick(interval time.Duration, f func() error, opts ...GoOption) {
+	var (
+		ticker = time.NewTicker(interval)
+		opt    = newGoOpts(opts...)
+		c      = errutil.NewCatchSimple()
+	)
+	if opt.pipe != nil {
+		c = errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(opt.pipe)))
+	}
+	s.Go(func(sig chan Signal) error {
+		for {
+			select {
+			case <-sig:
+				return nil
+			case <-ticker.C:
+				if opt.ctx != nil {
+					c.Exec(opt.ctx.Err)
+				}
+				c.Exec(f)
+				if c.Error() != nil && opt.pipe == nil {
+					return c.Error()
+				}
+			}
+		}
+	})
 }
 
 func (s *base) Shutdown() error {
@@ -66,6 +96,11 @@ o:
 		}
 	}
 	return nil
+}
+
+func (s *base) ShutdownAfter(d time.Duration) error {
+	time.Sleep(d)
+	return s.Shutdown()
 }
 
 func (s *base) Routines() map[string]int {
@@ -126,15 +161,15 @@ func newOptions(opts ...Option) *options {
 }
 
 func WithThreshold(threshold time.Duration) Option {
-	return func(o *options) {
-		o.shutdownThreshold = threshold
-	}
+	return func(o *options) { o.shutdownThreshold = threshold }
 }
 
 // |||||| GO OPTIONS ||||||
 
 type goOptions struct {
-	key string
+	key  string
+	ctx  context.Context
+	pipe chan error
 }
 
 func newGoOpts(opts ...GoOption) goOptions {
@@ -147,8 +182,8 @@ func newGoOpts(opts ...GoOption) goOptions {
 
 type GoOption func(*goOptions)
 
-func WithKey(key string) GoOption {
-	return func(goOpt *goOptions) {
-		goOpt.key = key
-	}
-}
+func WithKey(key string) GoOption { return func(opt *goOptions) { opt.key = key } }
+
+func WithContext(ctx context.Context) GoOption { return func(opt *goOptions) { opt.ctx = ctx } }
+
+func WithErrPipe(errC chan error) GoOption { return func(opt *goOptions) { opt.pipe = errC } }

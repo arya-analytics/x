@@ -3,15 +3,15 @@ package alamos
 // |||||| EXPERIMENT ||||||
 
 // Experiment is alamos' core data type. It represents a hierarchical collection of application metrics.
-// Experiment is a tree-like structure where each node is either a metric or a sub-experiment.
+// Experiment is a tree-like structure where each node is either a metric or a Sub-experiment.
 //
 // Creating Experiments:
 //
-// To create an experiment, use alamos.New().
+// ToAddr create an experiment, use alamos.New().
 //
 // Metrics:
 //
-// To add a metric, use one of the metric constructors. Available metrics are:
+// ToAddr add a metric, use one of the metric constructors. Available metrics are:
 //
 // 		- alamos.NewGauge
 //		- alamos.NewSeries
@@ -32,8 +32,12 @@ package alamos
 //		g := exp.NewGauge(exp, "bar")
 // 		g.Record(1)
 //
-// The same principle applies for sub-experiments. If a parent Experiment is empty and Sub is called, the returned
-// sub-experiment will be empty as well.
+// The same principle applies for Sub-experiments. If a parent Experiment is empty and Sub is called, the returned
+// Sub-experiment will be empty as well.
+//
+// When approaching empty experiments, we considered taking a route similar to zap.NewNop(), but because alamos
+// makes extensive use of generics, and methods can't have type parameters, we decided to try tolerating nil
+// experiments instead.
 //
 // Organizing Experiments:
 //
@@ -45,22 +49,27 @@ type Experiment interface {
 	Key() string
 	// Report returns a report of all the experiment's metrics.
 	Report() Report
+	filterTest(level Level) bool
 	sub(string) Experiment
 	getMetric(string) baseMetric
 	addMetric(metric baseMetric)
+	attachReporter(string, Level, Reporter)
 }
 
 // New creates a new experiment with the given key.
-func New(key string) Experiment {
+func New(key string, opts ...Option) Experiment {
+	o := newOptions(opts...)
 	return &experiment{
 		key:          key,
 		children:     make(map[string]Experiment),
 		measurements: make(map[string]baseMetric),
+		reporters:    make(map[string]Reporter),
+		options:      o,
 	}
 }
 
-// Sub creates a new sub-experiment with the given name and adds it to the given experiment.
-// If exp is nil, the new sub-experiment is NOT created, and instead the function returns nil.
+// Sub creates a new Sub-experiment with the given name and adds it to the given experiment.
+// If exp is nil, the new Sub-experiment is NOT created, and instead the function returns nil.
 func Sub(exp Experiment, key string) Experiment {
 	if exp == nil {
 		return nil
@@ -76,9 +85,12 @@ func RetrieveMetric[T any](exp Experiment, key string) Metric[T] {
 }
 
 type experiment struct {
+	options      *options
 	key          string
 	children     map[string]Experiment
 	measurements map[string]baseMetric
+	reports      map[string]Report
+	reporters    map[string]Reporter
 }
 
 func (e *experiment) Key() string {
@@ -102,4 +114,13 @@ func (e *experiment) addMetric(m baseMetric) {
 func (e *experiment) addSub(key string, exp Experiment) Experiment {
 	e.children[key] = exp
 	return exp
+}
+
+func (e *experiment) filterTest(level Level) bool {
+	for _, filter := range e.options.filters {
+		if filter.Test(level) {
+			return true
+		}
+	}
+	return false
 }

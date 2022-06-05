@@ -2,9 +2,9 @@ package errutil_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/arya-analytics/x/util/errutil"
+	"github.com/arya-analytics/x/errutil"
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sync"
@@ -35,7 +35,7 @@ var _ = Describe("Catch", func() {
 				Expect(catcher.Error()).To(BeNil())
 			})
 		})
-		Context("Error encountered", func() {
+		Context("ErrC encountered", func() {
 			var (
 				counter int
 				catcher *errutil.CatchSimple

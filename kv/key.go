@@ -2,10 +2,8 @@ package kv
 
 import (
 	"bytes"
-	"github.com/arya-analytics/x/util/errutil"
+	"github.com/arya-analytics/x/errutil"
 )
-
-// ||||||| GENERATE |||||||
 
 func CompositeKey(elems ...interface{}) ([]byte, error) {
 	b := new(bytes.Buffer)

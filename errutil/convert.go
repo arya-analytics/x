@@ -11,9 +11,9 @@ type Convert func(error) (error, bool)
 // ConvertChain chains and executes a set of Convert.
 // Last Convert in chain considered "default" converter, as will be last executed.
 // For example:
-// 		err := errors.New("unconverted error")
+// 		err := errors.Requests("unconverted error")
 // 		cc := errutil.ConvertChain{Convert1, Convert2, DefaultConvert}
-// 		cErr := cc.QExec()
+// 		cErr := cc.Exec()
 // 		fmt.Printf(cErr)
 // Output:
 // 		converted error.

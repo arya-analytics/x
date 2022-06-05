@@ -1,3 +1,5 @@
+// Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that implements
+// the kv.KV interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
 package pebblekv
 
 import (
@@ -5,16 +7,13 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
-type pebbleKV struct {
-	DB *pebble.DB
-}
+type pebbleKV struct{ *pebble.DB }
 
 // Wrap wraps a pebble.DB to satisfy the kv.KV interface.
-func Wrap(db *pebble.DB) kvc.KV {
-	return &pebbleKV{DB: db}
-}
+func Wrap(db *pebble.DB) kvc.KV { return &pebbleKV{DB: db} }
 
-func (kv pebbleKV) Get(key []byte) ([]byte, error) {
+// Get implements the kv.KV interface.
+func (kv pebbleKV) Get(key []byte, opts ...interface{}) ([]byte, error) {
 	v, c, err := kv.DB.Get(key)
 	if err != nil {
 		return v, err
@@ -22,18 +21,18 @@ func (kv pebbleKV) Get(key []byte) ([]byte, error) {
 	return v, c.Close()
 }
 
-func (kv pebbleKV) Set(key []byte, value []byte) error {
+// Set implements the kv.KV interface.
+func (kv pebbleKV) Set(key []byte, value []byte, opts ...interface{}) error {
 	return kv.DB.Set(key, value, pebble.NoSync)
 }
 
-func (kv pebbleKV) Delete(key []byte) error {
-	return kv.DB.Delete(key, pebble.NoSync)
-}
+// Delete implements the kv.KV interface.
+func (kv pebbleKV) Delete(key []byte) error { return kv.DB.Delete(key, pebble.NoSync) }
 
-func (kv pebbleKV) Close() error {
-	return kv.DB.Close()
-}
+// Close implements the kv.KV interface.
+func (kv pebbleKV) Close() error { return kv.DB.Close() }
 
+// IterPrefix implements the kv.KV interface.
 func (kv pebbleKV) IterPrefix(prefix []byte) kvc.Iterator {
 	upper := func(b []byte) []byte {
 		end := make([]byte, len(b))
@@ -52,6 +51,10 @@ func (kv pebbleKV) IterPrefix(prefix []byte) kvc.Iterator {
 	return kv.DB.NewIter(opts(prefix))
 }
 
+// IterRange implements the kv.KV interface.
 func (kv pebbleKV) IterRange(start, end []byte) kvc.Iterator {
 	return kv.DB.NewIter(&pebble.IterOptions{LowerBound: start, UpperBound: end})
 }
+
+// String implements the kv.KV interface.
+func (kv pebbleKV) String() string { return "pebbleKV" }
