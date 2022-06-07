@@ -7,7 +7,6 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 var _ = Describe("Pebble", func() {
@@ -47,7 +46,6 @@ var _ = Describe("Pebble", func() {
 				iter := kve.IterRange([]byte("foo"), []byte("foobar"))
 				c := 0
 				for iter.First(); iter.Valid(); iter.Next() {
-					logrus.Info(string(iter.Value()))
 					c++
 				}
 				Expect(c).To(Equal(1))

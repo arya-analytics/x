@@ -29,7 +29,7 @@ type createExecutor[T Entry] struct{ *DB }
 
 func (c *createExecutor[T]) Exec(q query.Query) error {
 	entries := *getEntries[T](q)
-	prefix := typePrefix(entries, c.encoder)
+	prefix := typePrefix[T](c.encoder)
 	for _, entry := range entries {
 		data, err := c.encoder.Encode(entry)
 		if err != nil {
@@ -46,8 +46,8 @@ func (c *createExecutor[T]) Exec(q query.Query) error {
 	return nil
 }
 
-func typePrefix[T Entry](m []T, encoder Encoder) []byte {
-	mName := reflect.TypeOf(m).Elem().Name()
+func typePrefix[T Entry](encoder Encoder) []byte {
+	mName := reflect.TypeOf(*new(T)).Name()
 	b, err := encoder.Encode(mName)
 	if err != nil {
 		panic(err)

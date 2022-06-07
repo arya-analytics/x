@@ -167,7 +167,7 @@ var _ = Describe("Telem", func() {
 				Expect(cesium.DataRate(10).Span(10)).To(Equal(cesium.Second))
 			})
 		})
-		Describe("ByteSpan", func() {
+		Describe("SizeSpan", func() {
 			It("Should return the span of the provided number of bytes", func() {
 				Expect(cesium.DataRate(10).ByteSpan(16, cesium.Float64)).To(Equal(200 * cesium.Millisecond))
 			})

@@ -126,7 +126,7 @@ func (r *retrieve[E]) whereKeys(q query.Query) error {
 		keys, _ = getWhereKeys(q)
 		f       = getFilters[E](q)
 		entries = getEntries[E](q)
-		prefix  = typePrefix(*entries, r.encoder)
+		prefix  = typePrefix(r.encoder)
 	)
 	byteKeys, err := keys.Bytes(r.encoder)
 	if err != nil {
@@ -155,7 +155,7 @@ func (r *retrieve[E]) filter(q query.Query) error {
 	var (
 		f       = getFilters[E](q)
 		entries = getEntries[E](q)
-		prefix  = typePrefix(*entries, r.encoder)
+		prefix  = typePrefix(r.encoder)
 		iter    = r.kv.IterPrefix(prefix)
 	)
 	for iter.First(); iter.Valid(); iter.Next() {

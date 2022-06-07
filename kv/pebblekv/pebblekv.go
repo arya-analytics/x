@@ -56,5 +56,9 @@ func (kv pebbleKV) IterRange(start, end []byte) kvc.Iterator {
 	return kv.DB.NewIter(&pebble.IterOptions{LowerBound: start, UpperBound: end})
 }
 
+func (kv pebbleKV) NewIterator(opts kvc.IterOptions) kvc.Iterator {
+	return kv.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
+}
+
 // String implements the kv.KV interface.
 func (kv pebbleKV) String() string { return "pebbleKV" }

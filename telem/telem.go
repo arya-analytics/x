@@ -110,6 +110,10 @@ func (ts TimeSpan) IsZero() bool { return ts == TimeSpanZero }
 // IsMax returns true if the TimeSpan is the maximum possible value.
 func (ts TimeSpan) IsMax() bool { return ts == TimeSpanMax }
 
+func (ts TimeSpan) ByteSize(dataRate DataRate, dataType DataType) Size {
+	return Size(ts / dataRate.Period() * TimeSpan(dataType))
+}
+
 const (
 	Nanosecond  = TimeSpan(1)
 	Microsecond = 1000 * Nanosecond
@@ -143,9 +147,9 @@ func (dr DataRate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float6
 // Span returns a TimeSpan representing the number of samples that occupy the provided Span.
 func (dr DataRate) Span(sampleCount int) TimeSpan { return dr.Period() * TimeSpan(sampleCount) }
 
-// ByteSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
-func (dr DataRate) ByteSpan(byteCount int, dataType Density) TimeSpan {
-	return dr.Span(byteCount / int(dataType))
+// SizeSpan returns a TimeSpan representing the number of samples that occupy a provided number of bytes.
+func (dr DataRate) SizeSpan(size Size, dataType Density) TimeSpan {
+	return dr.Span(int(size) / int(dataType))
 }
 
 // Hz represents a data rate of 1 Hz.

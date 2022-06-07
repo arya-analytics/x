@@ -41,3 +41,18 @@ func (s *CoreSink[V]) Flow(ctx Context) {
 		})
 	}
 }
+
+type UnarySink[V Value] struct {
+	In Outlet[V]
+}
+
+func (u *UnarySink[V]) InFrom(outlets ...Outlet[V]) {
+	if len(outlets) != 1 {
+		panic("unary sinks must have exactly one outlet")
+	}
+	u.In = outlets[0]
+}
+
+func (u *UnarySink[V]) OutTo(inlets ...Inlet[V]) { panic("sinks cannot pipe values out") }
+
+func (u *UnarySink[V]) Flow(ctx Context) {}

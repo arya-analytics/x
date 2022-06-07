@@ -17,6 +17,13 @@ import (
 // ErrNotFound is returned when a key is not found in the KV store.
 var ErrNotFound = pebble.ErrNotFound
 
+type IterValidityState = pebble.IterValidityState
+
+type IterOptions struct {
+	LowerBound []byte
+	UpperBound []byte
+}
+
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
@@ -51,14 +58,19 @@ type KV interface {
 type IteratorEngine interface {
 	IterPrefix(prefix []byte) Iterator
 	IterRange(start []byte, end []byte) Iterator
+	NewIterator(opts IterOptions) Iterator
 }
 
 type Iterator interface {
 	First() bool
 	Last() bool
 	Next() bool
+	NextWithLimit(limit []byte) IterValidityState
 	Key() []byte
 	Valid() bool
 	Value() []byte
 	Close() error
+	Error() error
+	SeekLT(key []byte) bool
+	SeekGE(key []byte) bool
 }
