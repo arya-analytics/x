@@ -3,14 +3,14 @@
 package gorp
 
 import (
-	"context"
+	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/query"
 )
 
 // |||||| QUERY ||||||
 
-// Retrieve is a query that retrieves entries from the DB.
+// Retrieve is a query that retrieves entriesOpt from the DB.
 type Retrieve[E Entry] struct{ query.Query }
 
 // NewRetrieve opens a new Retrieve query.
@@ -20,21 +20,20 @@ func NewRetrieve[E Entry]() Retrieve[E] { return Retrieve[E]{query.New()} }
 // WhereKeys method instead.
 func (r Retrieve[E]) Where(filter func(E) bool) Retrieve[E] { addFilter[E](r, filter); return r }
 
-// WhereKeys queries the DB for entries with the provided keys. Although more targeted, this lookup is substantially
+// WhereKeys queries the DB for entriesOpt with the provided keys. Although more targeted, this lookup is substantially
 // faster than a general Where query.
 func (r Retrieve[E]) WhereKeys(keys ...interface{}) Retrieve[E] { setWhereKeys(r, keys...); return r }
 
-// Entries binds a slice that the Query will fill results into.
-func (r Retrieve[E]) Entries(model *[]E) Retrieve[E] { setEntries(r, model); return r }
+// Entries binds a slice that the Query will fill results into. Calls to Entry will override all previous calls to
+// Entries or Entry.
+func (r Retrieve[E]) Entries(entries *[]E) Retrieve[E] { setEntries(r, entries); return r }
+
+// Entry binds the entry that the Query will fill results into. Calls to Entry will override all previous calls to
+// Entries or Entry. If  multiple results are returned by the Query, entry will be set to the last result.
+func (r Retrieve[E]) Entry(entry *E) Retrieve[E] { setEntry(r, entry); return r }
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
-func (r Retrieve[E]) Exec(ctx context.Context, db *DB) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-	query.SetContext(r, ctx)
-	return (&retrieve[E]{DB: db}).Exec(r)
-}
+func (r Retrieve[E]) Exec(db *DB) error { return (&retrieve[E]{DB: db}).Exec(r) }
 
 // |||||| FILTERS ||||||
 
@@ -76,11 +75,35 @@ func getFilters[E Entry](q query.Query) filters[E] {
 
 // |||||| ENTRIES ||||||
 
-const entriesKey query.OptionKey = "entries"
+const entriesKey query.OptionKey = "entriesOpt"
 
-func setEntries[E Entry](q query.Query, models *[]E) { q.Set(entriesKey, models) }
+type entriesOpt[E Entry] struct {
+	entry   *E
+	entries *[]E
+}
 
-func getEntries[E Entry](q query.Query) *[]E { return q.GetRequired(entriesKey).(*[]E) }
+func (e *entriesOpt[E]) add(entry E) {
+	if e.entry != nil {
+		*e.entry = entry
+	} else {
+		*e.entries = append(*e.entries, entry)
+	}
+}
+
+func (e *entriesOpt[E]) all() []E {
+	if e.entry != nil {
+		return []E{*e.entry}
+	}
+	return *e.entries
+}
+
+func setEntry[E Entry](q query.Query, entry *E) { q.Set(entriesKey, entriesOpt[E]{entry: entry}) }
+
+func setEntries[E Entry](q query.Query, e *[]E) { q.Set(entriesKey, entriesOpt[E]{entries: e}) }
+
+func getEntriesOpt[E Entry](q query.Query) entriesOpt[E] {
+	return q.GetRequired(entriesKey).(entriesOpt[E])
+}
 
 // |||||| WHERE KEYS ||||||
 
@@ -88,7 +111,7 @@ const whereKeysKey query.OptionKey = "whereKeys"
 
 type whereKeys []interface{}
 
-func (w whereKeys) Bytes(encoder Encoder) ([][]byte, error) {
+func (w whereKeys) Bytes(encoder binary.Encoder) ([][]byte, error) {
 	byteWhereKeys := make([][]byte, len(w))
 	for i, key := range w {
 		var err error
@@ -125,8 +148,8 @@ func (r *retrieve[E]) whereKeys(q query.Query) error {
 	var (
 		keys, _ = getWhereKeys(q)
 		f       = getFilters[E](q)
-		entries = getEntries[E](q)
-		prefix  = typePrefix(r.encoder)
+		entries = getEntriesOpt[E](q)
+		prefix  = typePrefix[E](r.DB, r.encoder)
 	)
 	byteKeys, err := keys.Bytes(r.encoder)
 	if err != nil {
@@ -140,12 +163,12 @@ func (r *retrieve[E]) whereKeys(q query.Query) error {
 		if err != nil {
 			return err
 		}
-		m := new(E)
-		if err = r.decoder.Decode(b, m); err != nil {
+		var entry E
+		if err = r.decoder.Decode(b, &entry); err != nil {
 			return err
 		}
-		if f.exec(*m) {
-			*entries = append(*entries, *m)
+		if f.exec(entry) {
+			entries.add(entry)
 		}
 	}
 	return nil
@@ -154,17 +177,17 @@ func (r *retrieve[E]) whereKeys(q query.Query) error {
 func (r *retrieve[E]) filter(q query.Query) error {
 	var (
 		f       = getFilters[E](q)
-		entries = getEntries[E](q)
-		prefix  = typePrefix(r.encoder)
+		entries = getEntriesOpt[E](q)
+		prefix  = typePrefix[E](r.DB, r.encoder)
 		iter    = r.kv.IterPrefix(prefix)
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
-		m := new(E)
-		if err := r.decoder.Decode(iter.Value(), m); err != nil {
+		var entry E
+		if err := r.decoder.Decode(iter.Value(), &entry); err != nil {
 			return err
 		}
-		if f.exec(*m) {
-			*entries = append(*entries, *m)
+		if f.exec(entry) {
+			entries.add(entry)
 		}
 	}
 	return iter.Close()

@@ -1,26 +1,37 @@
 package gorp
 
 import (
+	"github.com/arya-analytics/x/binary"
 	"go.uber.org/zap"
 )
 
 type options struct {
-	encoder Encoder
-	decoder Decoder
-	logger  *zap.SugaredLogger
+	encoder    binary.Encoder
+	decoder    binary.Decoder
+	logger     *zap.SugaredLogger
+	typePrefix bool
 }
 
 type Option func(o *options)
 
-func WithEncoder(encoder Encoder) Option { return func(opts *options) { opts.encoder = encoder } }
+func WithEncoder(encoder binary.Encoder) Option {
+	return func(opts *options) { opts.encoder = encoder }
+}
 
-func WithDecoder(decoder Decoder) Option { return func(opts *options) { opts.decoder = decoder } }
+func WithDecoder(decoder binary.Decoder) Option {
+	return func(opts *options) { opts.decoder = decoder }
+}
+
+func WithoutTypePrefix() Option {
+	return func(opts *options) { opts.typePrefix = false }
+}
 
 func newOptions(opts ...Option) *options {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
+	mergeDefaultOptions(o)
 	return o
 }
 
@@ -43,10 +54,11 @@ func mergeDefaultOptions(o *options) {
 
 func defaultOptions() *options {
 	logger, _ := zap.NewProduction()
-	ed := &defaultEncoderDecoder{}
+	ed := &binary.GobEncoderDecoder{}
 	return &options{
-		logger:  logger.Sugar(),
-		encoder: ed,
-		decoder: ed,
+		logger:     logger.Sugar(),
+		encoder:    ed,
+		decoder:    ed,
+		typePrefix: true,
 	}
 }
