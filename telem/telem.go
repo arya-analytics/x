@@ -32,8 +32,14 @@ func (ts TimeStamp) IsZero() bool { return ts == TimeStampMin }
 // After returns true if the TimeStamp is greater than the provided one.
 func (ts TimeStamp) After(t TimeStamp) bool { return ts > t }
 
+// AfterEq returns true if ts is less than or equal t t.
+func (ts TimeStamp) AfterEq(t TimeStamp) bool { return ts >= t }
+
 // Before returns true if the TimeStamp is less than the provided one.
 func (ts TimeStamp) Before(t TimeStamp) bool { return ts < t }
+
+// BeforeEq returns true if ts ie less than or equal to t.
+func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
 func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) + int64(tspan)) }
@@ -42,17 +48,25 @@ func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) +
 func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return TimeStamp(int64(ts) - int64(tspan)) }
 
 // SpanRange constructs a new TimeRange with the TimeStamp and provided TimeSpan.
-func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange { return ts.Range(ts.Add(span)) }
+func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
+	rng := ts.Range(ts.Add(span))
+	if !rng.Valid() {
+		rng = rng.Swap()
+	}
+	return rng
+}
 
 // Range constructs a new TimeRange with the TimeStamp and provided TimeStamp.
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 
 // String implements fmt.Stringer.
-func (ts TimeStamp) String() string { return ts.Time().String() }
+//func (ts TimeStamp) String() string { return ts.Time().String() }
 
 // |||||| TIME RANGE ||||||
 
-// TimeRange represents a range of time between two TimeStamp.
+// TimeRange represents a range of time between two TimeStamp. It's important
+// to note that the start of the range is inclusive, while the end of hte range is
+// exclusive.
 type TimeRange struct {
 	// Start is the start of the range.
 	Start TimeStamp
@@ -66,8 +80,8 @@ func (tr TimeRange) Span() TimeSpan { return TimeSpan(tr.End - tr.Start) }
 // IsZero returns true if the TimeSpan of TimeRange is empty.
 func (tr TimeRange) IsZero() bool { return tr.Span().IsZero() }
 
-// Bound limits the time range to the provided bounds.
-func (tr TimeRange) Bound(otr TimeRange) TimeRange {
+// BoundBy limits the time range to the provided bounds.
+func (tr TimeRange) BoundBy(otr TimeRange) TimeRange {
 	if otr.Start.After(tr.Start) {
 		tr.Start = otr.Start
 	}
@@ -76,6 +90,32 @@ func (tr TimeRange) Bound(otr TimeRange) TimeRange {
 	}
 	return tr
 }
+
+// ContainsStamp returns true if the TimeRange contains the provided TimeStamp
+func (tr TimeRange) ContainsStamp(stamp TimeStamp) bool {
+	return stamp.AfterEq(tr.Start) && stamp.Before(tr.End)
+}
+
+// ContainsRange returns true if provided TimeRange contains the provided TimeRange.
+// Returns true if the two ranges are equal.
+func (tr TimeRange) ContainsRange(rng TimeRange) bool {
+	return rng.Start.AfterEq(tr.Start) && rng.End.BeforeEq(tr.End)
+}
+
+// OverlapsWith returns true if the provided TimeRange overlaps with tr.
+func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
+	if tr.End == rng.Start || tr.Start == rng.End {
+		return false
+	}
+	return tr.ContainsStamp(rng.End) ||
+		tr.ContainsStamp(rng.Start) ||
+		rng.ContainsStamp(tr.Start) ||
+		rng.ContainsStamp(tr.End)
+}
+
+func (tr TimeRange) Swap() TimeRange { return TimeRange{Start: tr.End, End: tr.Start} }
+
+func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.

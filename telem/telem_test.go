@@ -1,152 +1,192 @@
 package telem_test
 
 import (
+	"github.com/arya-analytics/x/telem"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"time"
 )
 
 var _ = Describe("Telem", func() {
+
 	Describe("TimeStamp", func() {
+
 		Describe("Now", func() {
 			It("Should return the current time", func() {
-				Expect(cesium.Now().Time()).To(BeTemporally("~", time.Now(), time.Millisecond))
+				Expect(telem.Now().Time()).To(BeTemporally("~", time.Now(), time.Millisecond))
 			})
 		})
+
 		Describe("New", func() {
 			It("Should initialize a new timestamp based on the provided time", func() {
 				t := time.Now()
-				t0 := cesium.NewTimeStamp(t)
+				t0 := telem.NewTimeStamp(t)
 				Expect(t0.Time()).To(BeTemporally("~", t, time.Millisecond))
 			})
 		})
+
 		Describe("IsZero", func() {
 			It("Should return true if the timestamp is zero", func() {
-				Expect(cesium.TimeStampMin.IsZero()).To(BeTrue())
-				Expect(cesium.TimeStampMax.IsZero()).To(BeFalse())
+				Expect(telem.TimeStampMin.IsZero()).To(BeTrue())
+				Expect(telem.TimeStampMax.IsZero()).To(BeFalse())
 			})
 		})
+
 		Describe("After", func() {
 			It("Should return true if the timestamp is after the provided one", func() {
-				Expect(cesium.TimeStampMin.After(cesium.TimeStampMax)).To(BeFalse())
-				Expect(cesium.TimeStampMax.After(cesium.TimeStampMin)).To(BeTrue())
+				Expect(telem.TimeStampMin.After(telem.TimeStampMax)).To(BeFalse())
+				Expect(telem.TimeStampMax.After(telem.TimeStampMin)).To(BeTrue())
 			})
 			It("Should return false if the timestamp is equal to the provided one", func() {
-				Expect(cesium.TimeStampMin.After(cesium.TimeStampMin)).To(BeFalse())
-				Expect(cesium.TimeStampMax.After(cesium.TimeStampMax)).To(BeFalse())
+				Expect(telem.TimeStampMin.After(telem.TimeStampMin)).To(BeFalse())
+				Expect(telem.TimeStampMax.After(telem.TimeStampMax)).To(BeFalse())
 			})
 		})
+
 		Describe("Before", func() {
 			It("Should return true if the timestamp is before the provided one", func() {
-				Expect(cesium.TimeStampMin.Before(cesium.TimeStampMax)).To(BeTrue())
-				Expect(cesium.TimeStampMax.Before(cesium.TimeStampMin)).To(BeFalse())
+				Expect(telem.TimeStampMin.Before(telem.TimeStampMax)).To(BeTrue())
+				Expect(telem.TimeStampMax.Before(telem.TimeStampMin)).To(BeFalse())
 			})
 			It("Should return false if the timestamp is equal to the provided one", func() {
-				Expect(cesium.TimeStampMin.Before(cesium.TimeStampMin)).To(BeFalse())
-				Expect(cesium.TimeStampMax.Before(cesium.TimeStampMax)).To(BeFalse())
+				Expect(telem.TimeStampMin.Before(telem.TimeStampMin)).To(BeFalse())
+				Expect(telem.TimeStampMax.Before(telem.TimeStampMax)).To(BeFalse())
 			})
 		})
+
 		Describe("Add", func() {
 			It("Should return a new timestamp with the provided timespan added to it", func() {
-				t0 := cesium.TimeStamp(0)
-				t1 := t0.Add(cesium.Second)
-				Expect(t1).To(Equal(cesium.TimeStamp(1 * cesium.Second)))
+				t0 := telem.TimeStamp(0)
+				t1 := t0.Add(telem.Second)
+				Expect(t1).To(Equal(telem.TimeStamp(1 * telem.Second)))
 			})
 		})
+
 		Describe("Sub", func() {
 			It("Should return a new timestamp with the provided timespan subtracted from it", func() {
-				t0 := cesium.TimeStamp(0)
-				t1 := t0.Sub(cesium.Second)
-				Expect(t1).To(Equal(cesium.TimeStamp(-1 * cesium.Second)))
+				t0 := telem.TimeStamp(0)
+				t1 := t0.Sub(telem.Second)
+				Expect(t1).To(Equal(telem.TimeStamp(-1 * telem.Second)))
 			})
 		})
+
 		Describe("SpanRange", func() {
 			It("Should return the correct time range", func() {
-				t0 := cesium.TimeStamp(0)
-				r := t0.SpanRange(cesium.Second)
+				t0 := telem.TimeStamp(0)
+				r := t0.SpanRange(telem.Second)
 				Expect(r.Start).To(Equal(t0))
-				Expect(r.End).To(Equal(t0.Add(cesium.Second)))
+				Expect(r.End).To(Equal(t0.Add(telem.Second)))
 			})
 		})
+
 		Describe("Range", func() {
 			It("Should return the correct time range", func() {
-				t0 := cesium.TimeStamp(0)
-				t1 := t0.Add(cesium.Second)
+				t0 := telem.TimeStamp(0)
+				t1 := t0.Add(telem.Second)
 				r := t0.Range(t1)
 				Expect(r.Start).To(Equal(t0))
 				Expect(r.End).To(Equal(t1))
 			})
 		})
-		Describe("String", func() {
-			It("Should return the correct string", func() {
-				t0 := cesium.TimeStamp(0)
-				Expect(t0.String()).To(Equal("1969-12-31 16:00:00 -0800 PST"))
-			})
-		})
+
 	})
+
 	Describe("TimeRange", func() {
+
 		Describe("Span", func() {
 			It("Should return the correct time span", func() {
-				tr := cesium.TimeRange{
-					Start: cesium.TimeStamp(0),
-					End:   cesium.TimeStamp(cesium.Second),
+				tr := telem.TimeRange{
+					Start: telem.TimeStamp(0),
+					End:   telem.TimeStamp(telem.Second),
 				}
-				Expect(tr.Span()).To(Equal(cesium.Second))
+				Expect(tr.Span()).To(Equal(telem.Second))
 			})
 		})
+
 		Describe("IsZero", func() {
 			It("Should return true if the time range is zero", func() {
-				Expect(cesium.TimeRangeMin.IsZero()).To(BeFalse())
-				Expect(cesium.TimeRangeMax.IsZero()).To(BeFalse())
-				Expect(cesium.TimeRangeZero.IsZero()).To(BeTrue())
+				Expect(telem.TimeRangeMin.IsZero()).To(BeFalse())
+				Expect(telem.TimeRangeMax.IsZero()).To(BeFalse())
+				Expect(telem.TimeRangeZero.IsZero()).To(BeTrue())
 			})
 		})
-		Describe("Bound", func() {
+
+		Describe("BoundBy", func() {
 			It("Should bound the time range to the provided constraints", func() {
-				tr := cesium.TimeRange{
-					Start: cesium.TimeStamp(time.Second),
-					End:   cesium.TimeStamp(time.Second * 4),
+				tr := telem.TimeRange{
+					Start: telem.TimeStamp(telem.Second),
+					End:   telem.TimeStamp(telem.Second * 4),
 				}
-				bound := cesium.TimeRange{
-					Start: cesium.TimeStamp(2 * time.Second),
-					End:   cesium.TimeStamp(time.Second * 3),
+				bound := telem.TimeRange{
+					Start: telem.TimeStamp(2 * telem.Second),
+					End:   telem.TimeStamp(telem.Second * 3),
 				}
-				bounded := tr.Bound(bound)
+				bounded := tr.BoundBy(bound)
 				Expect(bounded.Start).To(Equal(bound.Start))
 				Expect(bounded.End).To(Equal(bounded.End))
 			})
 		})
+
+		Describe("ContainsStamp", func() {
+			It("Should return true when the range contains the timestamp", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				Expect(tr.ContainsStamp(telem.TimeStamp(4 * telem.Second))).To(BeTrue())
+				By("Being inclusive at the lower bound")
+				Expect(tr.ContainsStamp(telem.TimeStamp(0 * telem.Second))).To(BeTrue())
+				By("Being exclusive at the upper bound")
+				Expect(tr.ContainsStamp(telem.TimeStamp(5 * telem.Second))).To(BeFalse())
+			})
+		})
+
+		Describe("OverlapsWith", func() {
+			It("Should return true when the ranges overlap with one another", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				Expect(tr.ContainsRange(telem.TimeStamp(1).SpanRange(2 * telem.Second))).To(BeTrue())
+			})
+			It("Should return false when the start of one range is the end of another", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				tr2 := telem.TimeStamp(5 * telem.Second).SpanRange(5 * telem.Second)
+				Expect(tr.ContainsRange(tr2)).To(BeFalse())
+				Expect(tr2.ContainsRange(tr)).To(BeFalse())
+			})
+			It("Should return true if checked against itself", func() {
+				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
+				Expect(tr.ContainsRange(tr))
+			})
+		})
+
 	})
+
 	Describe("TimeSpan", func() {
 		Describe("Duration", func() {
 			It("Should return the correct time span", func() {
-				ts := cesium.Second
+				ts := telem.Second
 				Expect(ts.Duration()).To(Equal(time.Second))
 			})
 		})
 		Describe("Seconds", func() {
 			It("Should return the correct number of seconds in the span", func() {
-				ts := cesium.Millisecond
+				ts := telem.Millisecond
 				Expect(ts.Seconds()).To(Equal(0.001))
 			})
 		})
 		Describe("IsZero", func() {
 			It("Should return true if the time span is zero", func() {
-				Expect(cesium.TimeSpanMax.IsZero()).To(BeFalse())
-				Expect(cesium.TimeSpanZero.IsZero()).To(BeTrue())
+				Expect(telem.TimeSpanMax.IsZero()).To(BeFalse())
+				Expect(telem.TimeSpanZero.IsZero()).To(BeTrue())
 			})
 		})
 		Describe("IsMax", func() {
 			It("Should return true if the time span is the maximum", func() {
-				Expect(cesium.TimeSpanMax.IsMax()).To(BeTrue())
-				Expect(cesium.TimeSpanZero.IsMax()).To(BeFalse())
+				Expect(telem.TimeSpanMax.IsMax()).To(BeTrue())
+				Expect(telem.TimeSpanZero.IsMax()).To(BeFalse())
 			})
 		})
 	})
 	Describe("Size", func() {
 		Describe("String", func() {
 			It("Should return the correct string", func() {
-				s := cesium.Size(0)
+				s := telem.Size(0)
 				Expect(s.String()).To(Equal("0B"))
 			})
 		})
@@ -154,22 +194,22 @@ var _ = Describe("Telem", func() {
 	Describe("DataRate", func() {
 		Describe("Period", func() {
 			It("Should return the correct period for the data rate", func() {
-				Expect(cesium.DataRate(1).Period()).To(Equal(cesium.Second))
+				Expect(telem.DataRate(1).Period()).To(Equal(telem.Second))
 			})
 		})
 		Describe("SampleCount", func() {
 			It("Should return the number of samples that fit in the span", func() {
-				Expect(cesium.DataRate(10).SampleCount(cesium.Second)).To(Equal(10))
+				Expect(telem.DataRate(10).SampleCount(telem.Second)).To(Equal(10))
 			})
 		})
 		Describe("Span", func() {
 			It("Should return the span of the provided samples", func() {
-				Expect(cesium.DataRate(10).Span(10)).To(Equal(cesium.Second))
+				Expect(telem.DataRate(10).Span(10)).To(Equal(telem.Second))
 			})
 		})
 		Describe("SizeSpan", func() {
 			It("Should return the span of the provided number of bytes", func() {
-				Expect(cesium.DataRate(10).ByteSpan(16, cesium.Float64)).To(Equal(200 * cesium.Millisecond))
+				Expect(telem.DataRate(10).SizeSpan(16, telem.Float64)).To(Equal(200 * telem.Millisecond))
 			})
 		})
 	})
