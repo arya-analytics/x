@@ -1,7 +1,6 @@
 package gorp_test
 
 import (
-	"context"
 	"github.com/arya-analytics/x/gorp"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/kv/memkv"
@@ -14,7 +13,7 @@ type entry struct {
 	Data string
 }
 
-func (m entry) Key() interface{} { return m.ID }
+func (m entry) GorpKey() int { return m.ID }
 
 func (m entry) SetOptions() []interface{} { return nil }
 
@@ -35,10 +34,9 @@ var _ = Describe("Create", func() {
 		for i := 0; i < 10; i++ {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
-		ctx := context.Background()
-		Expect(gorp.NewCreate[entry]().Entries(&entries).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(db)).To(Succeed())
 		var res []entry
-		Expect(gorp.NewRetrieve[entry]().Entries(&res).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewRetrieve[int, entry]().Entries(&res).Exec(db)).To(Succeed())
 		Expect(res).To(Equal(entries))
 	})
 })

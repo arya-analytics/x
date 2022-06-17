@@ -65,6 +65,7 @@ type Iterator interface {
 	First() bool
 	Last() bool
 	Next() bool
+	Prev() bool
 	NextWithLimit(limit []byte) IterValidityState
 	Key() []byte
 	Valid() bool

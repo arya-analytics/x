@@ -21,7 +21,7 @@ var _ = Describe("Pebble", func() {
 	AfterEach(func() {
 		Expect(kve.Close()).To(Succeed())
 	})
-	Describe("Iterator", func() {
+	Describe("Iterate", func() {
 		Describe("Prefix", func() {
 			It("Should iterate over keys with the same prefix", func() {
 				Expect(kve.Set([]byte("foo"), []byte("bar"))).To(Succeed())
@@ -37,7 +37,7 @@ var _ = Describe("Pebble", func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 		})
-		Describe("Range", func() {
+		Describe("BoundedRange", func() {
 			It("Should iterate over a range of keys", func() {
 				Expect(kve.Set([]byte("foo"), []byte("bar"))).To(Succeed())
 				Expect(kve.Set([]byte("foobar"), []byte("baz"))).To(Succeed())

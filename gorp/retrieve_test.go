@@ -21,7 +21,7 @@ var _ = Describe("Retrieve", func() {
 		for i := 0; i < 10; i++ {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
-		Expect(gorp.NewCreate[entry]().Entries(&entries).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(db)).To(Succeed())
 	})
 	AfterEach(func() {
 		Expect(kv.Close()).To(Succeed())
@@ -29,27 +29,27 @@ var _ = Describe("Retrieve", func() {
 	Describe("WhereKeys", func() {
 		It("Should retrieve the entry by key", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[entry]().WhereKeys(entries[0].Key()).Entries(&res).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(entries[0].GorpKey()).Entries(&res).Exec(db)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[0]}))
 		})
 	})
 	Describe("Where", func() {
 		It("Should retrieve the entry by a filter parameter", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[entry]().
+			Expect(gorp.NewRetrieve[int, entry]().
 				Entries(&res).
 				Where(func(e entry) bool { return e.ID == entries[1].ID }).
-				Exec(ctx, db),
+				Exec(db),
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1]}))
 		})
 		It("Should support multiple filters", func() {
 			var res []entry
-			Expect(gorp.NewRetrieve[entry]().
+			Expect(gorp.NewRetrieve[int, entry]().
 				Entries(&res).
 				Where(func(e entry) bool { return e.ID == entries[1].ID }).
 				Where(func(e entry) bool { return e.ID == entries[2].ID }).
-				Exec(ctx, db),
+				Exec(db),
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2]}))
 		})

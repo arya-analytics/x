@@ -79,7 +79,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Range", func() {
+		Describe("BoundedRange", func() {
 			It("Should return the correct time range", func() {
 				t0 := telem.TimeStamp(0)
 				t1 := t0.Add(telem.Second)
@@ -183,7 +183,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 	})
-	Describe("Size", func() {
+	Describe("UnboundedSize", func() {
 		Describe("String", func() {
 			It("Should return the correct string", func() {
 				s := telem.Size(0)

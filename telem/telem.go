@@ -166,7 +166,9 @@ const (
 // |||||| SIZE ||||||
 
 // Size represents the size of an element in bytes.
-type Size uint64
+type Size int64
+
+type Offset = Size
 
 const Kilobytes Size = 1024
 

@@ -63,7 +63,7 @@ func DefaultContext() Context {
 	}
 }
 
-// |||||| ROUTER ||||||
+// |||||| SWITCH ||||||
 
 // Switch is a segment that reads values from a set of input streams, resolves their address,
 // and sends them to the appropriate output streams. Switch is a more efficient implementation of
@@ -185,8 +185,8 @@ func (d *Confluence[V]) Flow(ctx Context) {
 	}
 }
 
-// Delta is similar to confluence. It reads values from a set of input streams and pipes them to a set of output streams.
-// Only one output streamImpl receives a copy of each value from input streamImpl. This value is taken by the first
+// Delta is similar to Confluence. It reads values from a set of input streams and pipes them to a set of output streams.
+// Only one output stream receives a copy of each value from the input stream. This value is taken by the first
 // inlet that can accept it.
 type Delta[V Value] struct {
 	In  []Outlet[V]
