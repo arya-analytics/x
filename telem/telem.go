@@ -85,8 +85,14 @@ func (tr TimeRange) BoundBy(otr TimeRange) TimeRange {
 	if otr.Start.After(tr.Start) {
 		tr.Start = otr.Start
 	}
+	if otr.Start.After(tr.End) {
+		tr.End = otr.Start
+	}
 	if otr.End.Before(tr.End) {
 		tr.End = otr.End
+	}
+	if otr.End.Before(tr.Start) {
+		tr.Start = otr.End
 	}
 	return tr
 }
@@ -194,8 +200,11 @@ func (dr DataRate) SizeSpan(size Size, dataType Density) TimeSpan {
 	return dr.Span(int(size) / int(dataType))
 }
 
-// Hz represents a data rate of 1 Hz.
-const Hz DataRate = 1
+const (
+	// Hz represents a data rate of 1 Hz.
+	Hz  DataRate = 1
+	KHz          = 1000 * Hz
+)
 
 // |||||| DENSITY ||||||
 

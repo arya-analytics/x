@@ -151,9 +151,7 @@ type options struct {
 type Option func(*options)
 
 func newOptions(opts ...Option) *options {
-	o := &options{
-		shutdownThreshold: DefaultShutdownThreshold,
-	}
+	o := &options{shutdownThreshold: DefaultShutdownThreshold}
 	for _, opt := range opts {
 		opt(o)
 	}

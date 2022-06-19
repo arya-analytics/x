@@ -23,8 +23,9 @@ type Executor interface {
 	Exec(q Query) error
 }
 
-// Factory is an entity that can create a new Query.
+// Factory is an entity that can open a new Query.
 type Factory[Q Query] interface {
+	// New opens a new Query.
 	New() Q
 }
 
