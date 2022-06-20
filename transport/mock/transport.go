@@ -9,49 +9,62 @@ import (
 )
 
 type Unary[
-	REQ transport.Message,
-	RES transport.Message] struct {
+	I transport.Message,
+	O transport.Message] struct {
 	Address address.Address
-	Network *Network[REQ, RES]
-	Handler func(context.Context, REQ) (RES, error)
+	Network *Network[I, O]
+	Handler func(context.Context, I) (O, error)
 }
 
-func (t *Unary[REQ, RES]) Send(ctx context.Context, addr address.Address, req REQ) (RES, error) {
+func (t *Unary[I, O]) Send(ctx context.Context, addr address.Address, req I) (O, error) {
 	return t.Network.Send(ctx, addr, req)
 }
 
-func (t *Unary[REQ, RES]) Handle(handler func(context.Context, REQ) (RES, error)) {
+func (t *Unary[I, O]) Handle(handler func(context.Context, I) (O, error)) {
 	t.Handler = handler
 }
 
-func (t *Unary[REQ, RES]) String() string { return fmt.Sprintf("mock.Unary{} at %s", t.Address) }
+func (t *Unary[I, O]) String() string { return fmt.Sprintf("mock.Unary{} at %s", t.Address) }
 
-type Network[
-	REQ transport.Message,
-	RES transport.Message] struct {
-	mu      sync.Mutex
-	Entries []NetworkEntry[REQ, RES]
-	Routes  map[address.Address]*Unary[REQ, RES]
-}
-
-type NetworkEntry[REQ transport.Message, RES transport.Message] struct {
+type Stream[I, O transport.Message] struct {
+	Network Network[I, O]
 	Address address.Address
-	REQ     transport.Message
-	RES     transport.Message
-	Error   error
+	Handler func(context.Context, <-chan I) (<-chan O, error)
 }
 
-func (n *Network[REQ, RES]) Route(addr address.Address) *Unary[REQ, RES] {
+func (s *Stream[I, O]) Stream(ctx context.Context, addr address.Address, req <-chan I) (<-chan O, error) {
+	return s.Network.Stream(ctx, addr, req)
+}
+
+func (s *Stream[I, O]) Handle(handler func(context.Context, <-chan I) (<-chan O, error)) {
+	s.Handler = handler
+}
+
+type Network[I, O transport.Message] struct {
+	mu           sync.Mutex
+	Entries      []NetworkEntry[I, O]
+	UnaryRoutes  map[address.Address]*Unary[I, O]
+	StreamRoutes map[address.Address]*Stream[I, O]
+}
+
+type NetworkEntry[I, O transport.Message] struct {
+	Address  address.Address
+	Request  I
+	Response O
+	Error    error
+}
+
+func (n *Network[I, O]) Route(addr address.Address) *Unary[I, O] {
 	if addr == "" {
-		addr = address.Address(fmt.Sprintf("localhost:%v", len(n.Routes)))
+		addr = address.Address(fmt.Sprintf("localhost:%v", len(n.UnaryRoutes)))
 	}
-	t := &Unary[REQ, RES]{Address: addr, Network: n}
-	n.Routes[addr] = t
+	t := &Unary[I, O]{Address: addr, Network: n}
+	n.UnaryRoutes[addr] = t
 	return t
 }
 
-func (n *Network[REQ, RES]) Send(ctx context.Context, addr address.Address, req REQ) (res RES, err error) {
-	route, ok := n.Routes[addr]
+func (n *Network[I, O]) Send(ctx context.Context, addr address.Address, req I) (res O, err error) {
+	route, ok := n.UnaryRoutes[addr]
 	if !ok {
 		return res, fmt.Errorf("no route to %v", addr)
 	}
@@ -63,12 +76,25 @@ func (n *Network[REQ, RES]) Send(ctx context.Context, addr address.Address, req 
 	return res, err
 }
 
-func (n *Network[REQ, RES]) appendEntry(addr address.Address, req REQ, res RES, err error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Entries = append(n.Entries, NetworkEntry[REQ, RES]{Address: addr, REQ: req, RES: res, Error: err})
+func (n *Network[I, O]) Stream(ctx context.Context, addr address.Address, req <-chan I) (<-chan O, error) {
+	route, ok := n.StreamRoutes[addr]
+	if !ok {
+		return nil, fmt.Errorf("no route to %v", addr)
+	}
+	if route.Handler == nil {
+		return nil, fmt.Errorf("no handler for %v", addr)
+	}
+	res, err := route.Handler(ctx, req)
+	n.appendEntry(addr, req, res, err)
+	return res, err
 }
 
-func NewNetwork[REQ transport.Message, RES transport.Message]() *Network[REQ, RES] {
-	return &Network[REQ, RES]{Routes: make(map[address.Address]*Unary[REQ, RES])}
+func (n *Network[I, O]) appendEntry(addr address.Address, req I, res O, err error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.Entries = append(n.Entries, NetworkEntry[I, O]{Address: addr, Request: req, Response: res, Error: err})
+}
+
+func NewNetwork[I, O transport.Message]() *Network[I, O] {
+	return &Network[I, O]{UnaryRoutes: make(map[address.Address]*Unary[I, O])}
 }

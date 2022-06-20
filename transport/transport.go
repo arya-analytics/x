@@ -35,5 +35,5 @@ type StreamClient[I, O Message] interface {
 }
 
 type StreamServer[I, O Message] interface {
-	Handle(func(context.Context, address.Address, <-chan I) (<-chan O, error))
+	Handle(func(context.Context, <-chan I) (<-chan O, error))
 }
