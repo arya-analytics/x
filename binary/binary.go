@@ -63,7 +63,8 @@ func (e *GobEncoderDecoder) Encode(value interface{}) ([]byte, error) {
 	}
 	var buff bytes.Buffer
 	err := gob.NewEncoder(&buff).Encode(value)
-	return buff.Bytes(), err
+	b := buff.Bytes()
+	return b, err
 }
 
 func (e *GobEncoderDecoder) EncodeStatic(value interface{}) []byte {

@@ -216,6 +216,7 @@ type (
 )
 
 const (
+	Unknown Density = 0
 	Float64 Density = 8
 	Int64   Density = 8
 	Uint64  Density = 8

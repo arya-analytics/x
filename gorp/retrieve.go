@@ -6,6 +6,7 @@ import (
 	"github.com/arya-analytics/x/binary"
 	"github.com/arya-analytics/x/kv"
 	"github.com/arya-analytics/x/query"
+	"github.com/cockroachdb/errors"
 )
 
 // |||||| QUERY ||||||
@@ -194,7 +195,7 @@ func (r *retrieve[K, E]) filter(q query.Query) error {
 	for iter.First(); iter.Valid(); iter.Next() {
 		var entry E
 		if err := r.decoder.Decode(iter.Value(), &entry); err != nil {
-			return err
+			return errors.Wrap(err, "failed to decode entry")
 		}
 		if f.exec(entry) {
 			entries.add(entry)

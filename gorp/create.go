@@ -39,6 +39,8 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 		if err != nil {
 			return err
 		}
+		// NOTE: We need to be careful with this operation in the future.
+		// Because we aren't copying prefix, we're modifying the underlying slice.
 		k := append(prefix, key...)
 		if err = c.kv.Set(k, data); err != nil {
 			return err
@@ -48,7 +50,7 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 }
 
 func typePrefix[K Key, E Entry[K]](db *DB, encoder binary.Encoder) []byte {
-	if !db.typePrefix {
+	if db.omitTypePrefix {
 		return []byte{}
 	}
 	mName := reflect.TypeOf(*new(E)).Name()
