@@ -87,3 +87,9 @@ func (e *GobEncoderDecoder) DecodeStatic(data []byte, value interface{}) {
 		panic(err)
 	}
 }
+
+func Copy(value []byte) (copied []byte) {
+	copied = make([]byte, len(value))
+	copy(copied, value)
+	return copied
+}
