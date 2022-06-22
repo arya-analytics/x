@@ -33,9 +33,11 @@ type Reader interface {
 
 // Writer is a writeable key-value store.
 type Writer interface {
-	// Set sets the value for the given key.
+	// Set sets the value for the given key. It is safe to modify the contents of key
+	// and value after Set returns.
 	Set(key []byte, value []byte, opts ...interface{}) error
-	// Delete removes the value for the given key.
+	// Delete removes the value for the given key. It is safe to modify the contents
+	// of key after Delete returns.
 	Delete(key []byte) error
 }
 
