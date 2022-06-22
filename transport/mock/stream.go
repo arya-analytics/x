@@ -6,7 +6,6 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/transport"
 	"github.com/cockroachdb/errors"
-	"io"
 )
 
 // Stream is a mock implementation of the transport.Stream interface.
@@ -19,81 +18,101 @@ type Stream[I, O transport.Message] struct {
 // Stream implements the transport.Stream interface.
 func (s *Stream[I, O]) Stream(
 	ctx context.Context,
-	addr address.Address,
-) (*StreamClient[I, O], error) {
-	route, ok := s.Network.StreamRoutes[addr]
+	target address.Address,
+) (transport.StreamClient[I, O], error) {
+	route, ok := s.Network.StreamRoutes[target]
 	if !ok || route.Handler == nil {
-		return nil, errors.Wrap(
-			transport.TargetNotFound,
-			fmt.Sprintf("no route to target %s", addr),
-		)
+		return nil, transport.NewTargetNotFound(target)
 	}
-	req, res, errC := make(chan I), make(chan O), make(chan error)
-	server := &StreamServer[I, O]{Requests: req, Responses: res, ErrC: errC}
+	req, res := make(chan I), make(chan O)
+	reqErrC, resErrC := make(chan error), make(chan error)
+	server := &StreamServer[I, O]{
+		requests:   req,
+		responses:  res,
+		clientErrC: reqErrC,
+		serverErrC: resErrC,
+	}
 	go func() {
 		if err := route.Handler(ctx, server); err != nil {
-			errC <- err
+			resErrC <- err
+			// Panicking here because we don't want to add a dependency on a logging
+			// package. This error also shouldn't occur during mock operation.
+			if err := server.CloseSend(); err != nil {
+				panic(errors.Wrap(err, "failed to close send"))
+			}
 		}
 	}()
-	return &StreamClient[I, O]{Requests: req, Responses: res, ErrC: errC}, nil
+	return &StreamClient[I, O]{
+		requests:   req,
+		responses:  res,
+		clientErrC: reqErrC,
+		serverErrC: resErrC,
+	}, nil
+}
+
+func (s *Stream[I, O]) String() string {
+	return fmt.Sprintf("mock.Stream{} at %s", s.Address)
 }
 
 // Handle implements the transport.Stream interface.
-func (s *Stream[I, O]) Handle(handler func(ctx context.Context, srv transport.StreamServer[I, O]) error) {
+func (s *Stream[I, O]) Handle(handler func(
+	ctx context.Context,
+	srv transport.StreamServer[I, O]) error) {
 	s.Handler = handler
 }
 
 // StreamClient is a mock implementation of the transport.StreamClient interface.
 type StreamClient[I, O transport.Message] struct {
-	Requests  chan I
-	Responses chan O
-	ErrC      <-chan error
+	requests   chan I
+	responses  chan O
+	serverErrC <-chan error
+	clientErrC chan<- error
 }
 
 // Send implements the transport.StreamClient interface.
-func (s *StreamClient[I, O]) Send(req I) error {
-	s.Requests <- req
-	select {
-	case err := <-s.ErrC:
-		return err
-	default:
-		return nil
-	}
-}
+func (s *StreamClient[I, O]) Send(req I) error { s.requests <- req; return nil }
 
 // Receive implements the transport.StreamClient interface.
-func (s *StreamClient[I, O]) Receive() (O, error) {
+func (s *StreamClient[I, O]) Receive() (resp O, err error) {
 	select {
-	case resp := <-s.Responses:
+	case resp = <-s.responses:
 		return resp, nil
-	case err := <-s.ErrC:
-		return nil, err
+	case err = <-s.serverErrC:
+		return resp, err
 	}
 }
 
 // CloseSend implements the transport.StreamClient interface.
 func (s *StreamClient[I, O]) CloseSend() error {
-	s.Requests <- io.EOF
-	close(s.Requests)
+	s.clientErrC <- transport.EOF
+	close(s.requests)
 	return nil
 }
 
 // StreamServer implements the transport.StreamServer interface.
 type StreamServer[I, O transport.Message] struct {
-	Requests  chan I
-	Responses chan O
-	ErrC      chan<- error
+	requests   chan I
+	responses  chan O
+	serverErrC chan<- error
+	clientErrC <-chan error
 }
 
 // Receive implements the transport.StreamServer interface.
-func (s *StreamServer[I, O]) Receive() (I, error) { return <-s.Requests, nil }
+func (s *StreamServer[I, O]) Receive() (req I, err error) {
+	select {
+	case req = <-s.requests:
+		return req, nil
+	case err = <-s.clientErrC:
+		return req, err
+	}
+}
 
 // Send implements the transport.StreamServer interface.
-func (s *StreamServer[I, O]) Send(res O) error { s.Responses <- res; return nil }
+func (s *StreamServer[I, O]) Send(res O) error { s.responses <- res; return nil }
 
 // CloseSend implements the transport.StreamServer interface.
 func (s *StreamServer[I, O]) CloseSend() error {
-	s.ErrC <- transport.EOF
-	close(s.Responses)
+	s.serverErrC <- transport.EOF
+	close(s.responses)
 	return nil
 }

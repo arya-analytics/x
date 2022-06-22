@@ -30,7 +30,7 @@ type NetworkEntry[I, O transport.Message] struct {
 // RouteUnary returns a new transport.Unary hosted at the given address. This transport
 // is not reachable by other hosts in the network until transport.Unary.
 // Handle is called.
-func (n *Network[I, O]) RouteUnary(host address.Address) *Unary[I, O] {
+func (n *Network[I, O]) RouteUnary(host address.Address) transport.Unary[I, O] {
 	t := &Unary[I, O]{Address: n.parseTarget(host), Network: n}
 	n.UnaryRoutes[host] = t
 	return t
@@ -39,7 +39,7 @@ func (n *Network[I, O]) RouteUnary(host address.Address) *Unary[I, O] {
 // RouteStream returns a new transport.Stream hosted at the given address.
 // This transport is not reachable by other hosts in the network until transport.Stream.
 // Handle is called.
-func (n *Network[I, O]) RouteStream(host address.Address) *Stream[I, O] {
+func (n *Network[I, O]) RouteStream(host address.Address) transport.Stream[I, O] {
 	t := &Stream[I, O]{Address: n.parseTarget(host), Network: n}
 	n.StreamRoutes[host] = t
 	return t
@@ -65,5 +65,8 @@ func (n *Network[I, O]) appendEntry(host, target address.Address, req I, res O, 
 }
 
 func NewNetwork[I, O transport.Message]() *Network[I, O] {
-	return &Network[I, O]{UnaryRoutes: make(map[address.Address]*Unary[I, O])}
+	return &Network[I, O]{
+		UnaryRoutes:  make(map[address.Address]*Unary[I, O]),
+		StreamRoutes: make(map[address.Address]*Stream[I, O]),
+	}
 }

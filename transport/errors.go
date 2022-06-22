@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"fmt"
+	"github.com/arya-analytics/x/address"
 	"github.com/cockroachdb/errors"
 	"io"
 )
@@ -14,3 +16,7 @@ var (
 	// indicate an unexpected failure. For an unexpected EOF, use io.ErrUnexpectedEOF.
 	EOF = errors.Wrap(io.EOF, "[x.transport] - end of stream")
 )
+
+func NewTargetNotFound(target address.Address) error {
+	return errors.Wrap(TargetNotFound, fmt.Sprintf("no route to target %s", target))
+}

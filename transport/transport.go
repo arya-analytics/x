@@ -8,13 +8,17 @@ import (
 
 type Message interface{}
 
+type Transport interface {
+	// Stringer returns a string description of the transport.
+	fmt.Stringer
+}
+
 // Unary is an entity that implements a simple request-response transport between a
 // client and a server.
 type Unary[I, O Message] interface {
+	Transport
 	UnaryClient[I, O]
 	UnaryServer[I, O]
-	// Stringer returns a string description of the transport.
-	fmt.Stringer
 }
 
 // UnaryClient is the client side interface of Unary transport.
@@ -40,11 +44,12 @@ type UnaryServer[I, O Message] interface {
 // exchange large amounts of messages over extended periods of time (in a non-blocking
 // fashion).
 type Stream[I, O Message] interface {
+	Transport
 	// Stream opens a stream to the target server using the given context. The context
 	// should be canceled if the client expects the server to discard future requests
 	// and abort the stream. Stream will return an error if the server cannot be reached
 	// or the stream cannot be opened.
-	Stream(context.Context, address.Address) (StreamClient[I, O], error)
+	Stream(ctx context.Context, target address.Address) (StreamClient[I, O], error)
 	// Handle handles a stream of requests from the client using the given context. If
 	// the provided context is invalidated during operation, the server is expected
 	// to immediately abort processing requests and respond with an error (ideally
@@ -54,7 +59,7 @@ type Stream[I, O Message] interface {
 	// cause the server to abort the stream and return an error. The transport
 	// implementation is expected to send the fatal error as the final message
 	// over the stream.
-	Handle(func(ctx context.Context, srv StreamServer[I, O]) error) error
+	Handle(func(ctx context.Context, srv StreamServer[I, O]) error)
 }
 
 // StreamClient is the client side interface of Stream transport.

@@ -18,11 +18,8 @@ type Unary[I, O transport.Message] struct {
 func (t *Unary[I, O]) Send(ctx context.Context, target address.Address, req I) (res O,
 	err error) {
 	route, ok := t.Network.UnaryRoutes[target]
-	if !ok {
-		return res, fmt.Errorf("no route to %v", target)
-	}
-	if route.Handler == nil {
-		return res, fmt.Errorf("no handler for %v", target)
+	if !ok || route.Handler == nil {
+		return res, transport.NewTargetNotFound(target)
 	}
 	res, err = route.Handler(ctx, req)
 	t.Network.appendEntry(t.Address, target, req, res, err)
@@ -33,4 +30,6 @@ func (t *Unary[I, O]) Send(ctx context.Context, target address.Address, req I) (
 func (t *Unary[I, O]) Handle(handler func(context.Context, I) (O, error)) { t.Handler = handler }
 
 // String implements the transport.Unary interface.
-func (t *Unary[I, O]) String() string { return fmt.Sprintf("mock.RouteUnary{} at %s", t.Address) }
+func (t *Unary[I, O]) String() string {
+	return fmt.Sprintf("mock.Unary{} at %s", t.Address)
+}
