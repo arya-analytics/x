@@ -35,7 +35,7 @@ var _ = Describe("Catch", func() {
 				Expect(catcher.Error()).To(BeNil())
 			})
 		})
-		Context("ErrC encountered", func() {
+		Context("ResponseErrors encountered", func() {
 			var (
 				counter int
 				catcher *errutil.CatchSimple
