@@ -17,6 +17,6 @@ var (
 	EOF = errors.Wrap(io.EOF, "[x.transport] - end of stream")
 )
 
-func NewTargetNotFound(target address.Address) error {
+func WrapNotFoundWithTarget(target address.Address) error {
 	return errors.Wrap(TargetNotFound, fmt.Sprintf("no route to target %s", target))
 }

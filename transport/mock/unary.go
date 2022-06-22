@@ -19,7 +19,7 @@ func (t *Unary[I, O]) Send(ctx context.Context, target address.Address, req I) (
 	err error) {
 	route, ok := t.Network.UnaryRoutes[target]
 	if !ok || route.Handler == nil {
-		return res, transport.NewTargetNotFound(target)
+		return res, transport.WrapNotFoundWithTarget(target)
 	}
 	res, err = route.Handler(ctx, req)
 	t.Network.appendEntry(t.Address, target, req, res, err)

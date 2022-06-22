@@ -22,7 +22,7 @@ func (s *Stream[I, O]) Stream(
 ) (transport.StreamClient[I, O], error) {
 	route, ok := s.Network.StreamRoutes[target]
 	if !ok || route.Handler == nil {
-		return nil, transport.NewTargetNotFound(target)
+		return nil, transport.WrapNotFoundWithTarget(target)
 	}
 	req, res := make(chan I, s.BufferSize), make(chan O, route.BufferSize)
 	reqErrC, resErrC := make(chan error), make(chan error)
