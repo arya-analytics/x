@@ -1,22 +1,21 @@
 package confluence
 
 import (
-	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/shutdown"
 	"github.com/arya-analytics/x/transport"
-	"io"
+	"github.com/cockroachdb/errors"
 )
 
 // Client wraps transport.StreamClient to provide a confluence compatible
 // interface for sending and receiving messages over the network.
 type Client[I, O transport.Message] struct {
 	Client    transport.StreamClient[I, O]
-	Requests  confluence.UnarySink[I]
-	Responses confluence.UnarySource[O]
+	Requests  UnarySink[I]
+	Responses UnarySource[O]
 }
 
 // Flow implements confluence.Context.
-func (tc *Client[I, O]) Flow(ctx confluence.Context) {
+func (tc *Client[I, O]) Flow(ctx Context) {
 	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for {
 			select {
@@ -24,12 +23,12 @@ func (tc *Client[I, O]) Flow(ctx confluence.Context) {
 				return nil
 			default:
 				res, err := tc.Client.Receive()
-				if err == io.EOF {
+				if errors.Is(err, transport.EOF) {
 					return nil
 				}
 				if err != nil {
 					ctx.ErrC <- err
-					continue
+					return nil
 				}
 				tc.Responses.Out.Inlet() <- res
 			}
@@ -50,8 +49,7 @@ func (tc *Client[I, O]) Flow(ctx confluence.Context) {
 					return nil
 				}
 				if err := tc.Client.Send(req); err != nil {
-					ctx.ErrC <- err
-					continue
+					return nil
 				}
 			}
 		}
@@ -62,11 +60,11 @@ func (tc *Client[I, O]) Flow(ctx confluence.Context) {
 // for sending and receiving messages over the network.
 type Server[I, O transport.Message] struct {
 	Server    transport.StreamServer[I, O]
-	Requests  confluence.UnarySource[I]
-	Responses confluence.UnarySink[O]
+	Requests  UnarySource[I]
+	Responses UnarySink[O]
 }
 
-func (tc *Server[I, O]) Flow(ctx confluence.Context) {
+func (tc *Server[I, O]) Flow(ctx Context) {
 	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for {
 			select {
@@ -74,12 +72,12 @@ func (tc *Server[I, O]) Flow(ctx confluence.Context) {
 				return nil
 			default:
 				req, err := tc.Server.Receive()
-				if err == io.EOF {
+				if errors.Is(err, transport.EOF) {
 					return nil
 				}
 				if err != nil {
 					ctx.ErrC <- err
-					continue
+					return err
 				}
 				tc.Requests.Out.Inlet() <- req
 			}
@@ -101,7 +99,7 @@ func (tc *Server[I, O]) Flow(ctx confluence.Context) {
 				}
 				if err := tc.Server.Send(res); err != nil {
 					ctx.ErrC <- err
-					continue
+					return nil
 				}
 			}
 		}
