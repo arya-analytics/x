@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/transport"
-	"github.com/cockroachdb/errors"
 )
 
 // Stream is a mock implementation of the transport.Stream interface.
 type Stream[I, O transport.Message] struct {
-	Address address.Address
-	Network *Network[I, O]
-	Handler func(ctx context.Context, srv transport.StreamServer[I, O]) error
+	Address    address.Address
+	BufferSize int
+	Network    *Network[I, O]
+	Handler    func(ctx context.Context, srv transport.StreamServer[I, O]) error
 }
 
 // Stream implements the transport.Stream interface.
@@ -24,7 +24,7 @@ func (s *Stream[I, O]) Stream(
 	if !ok || route.Handler == nil {
 		return nil, transport.NewTargetNotFound(target)
 	}
-	req, res := make(chan I), make(chan O)
+	req, res := make(chan I, s.BufferSize), make(chan O, route.BufferSize)
 	reqErrC, resErrC := make(chan error), make(chan error)
 	server := &StreamServer[I, O]{
 		requests:   req,
@@ -34,12 +34,11 @@ func (s *Stream[I, O]) Stream(
 	}
 	go func() {
 		if err := route.Handler(ctx, server); err != nil {
-			resErrC <- err
-			// Panicking here because we don't want to add a dependency on a logging
-			// package. This error also shouldn't occur during mock operation.
-			if err := server.CloseSend(); err != nil {
-				panic(errors.Wrap(err, "failed to close send"))
-			}
+			server.serverErrC <- err
+		}
+		// Panicking here because we don't want to add a dependency on a logging
+		// package. This error also shouldn't occur during mock operation.
+		if err := server.CloseSend(); err != nil {
 		}
 	}()
 	return &StreamClient[I, O]{

@@ -9,8 +9,9 @@ import (
 )
 
 var _ = Describe("Unary", func() {
+	var net *tmock.Network[int, int]
+	BeforeEach(func() { net = tmock.NewNetwork[int, int]() })
 	It("Should correctly handle an exchange client and server", func() {
-		net := tmock.NewNetwork[int, int]()
 		t1 := net.RouteUnary("localhost:0")
 		t2 := net.RouteUnary("localhost:1")
 		t1.Handle(func(ctx context.Context, in int) (out int, err error) {
@@ -21,7 +22,6 @@ var _ = Describe("Unary", func() {
 		Expect(res).To(Equal(2))
 	})
 	It("Should return the a TargetNotFound error when no route is found", func() {
-		net := tmock.NewNetwork[int, int]()
 		t1 := net.RouteUnary("localhost:0")
 		t1.Handle(func(ctx context.Context, in int) (out int, err error) {
 			return in + 1, nil
