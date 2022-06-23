@@ -8,6 +8,8 @@ import (
 // Pipeline is a segment that allows the caller to compose a set of sub-segments in a routed manner.
 type Pipeline[V Value] struct {
 	segments        map[address.Address]Segment[V]
+	sources         map[address.Address]Source[V]
+	sinks           map[address.Address]Sink[V]
 	routes          map[address.Address]map[address.Address]Stream[V]
 	routeInletTo    []address.Address
 	routeOutletFrom []address.Address
@@ -29,23 +31,23 @@ func (p *Pipeline[V]) NewRouteBuilder() *RouteBuilder[V] {
 	return &RouteBuilder[V]{CatchSimple: *errutil.NewCatchSimple(), Pipeline: p}
 }
 
-func (p *Pipeline[V]) route(from address.Address, to address.Address, stream Stream[V]) error {
-	fromSeg, ok := p.getSegment(from)
+func (p *Pipeline[V]) route(fromTarget, toTarget address.Address, stream Stream[V]) error {
+	from, ok := p.getSegment(fromTarget)
 	if !ok {
 		return ErrNotFound
 	}
-	toSeg, ok := p.getSegment(to)
+	to, ok := p.getSegment(toTarget)
 	if !ok {
 		return ErrNotFound
 	}
 
-	stream.SetInletAddress(to)
-	fromSeg.OutTo(stream)
+	stream.SetInletAddress(toTarget)
+	to.OutTo(stream)
 
-	stream.SetOutletAddress(from)
-	toSeg.InFrom(stream)
+	stream.SetOutletAddress(fromTarget)
+	from.InFrom(stream)
 
-	p.setStream(from, to, stream)
+	p.setStream(fromTarget, toTarget, stream)
 	return nil
 }
 
@@ -73,11 +75,11 @@ func (p *Pipeline[V]) RouteOutletFrom(from ...address.Address) error {
 
 func (p *Pipeline[V]) constructEndpointRoutes() {
 	for _, addr := range p.routeOutletFrom {
-		seg, _ := p.getSegment(addr)
+		seg, _ := p.getSource(addr)
 		seg.OutTo(p.Out)
 	}
 	for _, addr := range p.routeInletTo {
-		seg, _ := p.getSegment(addr)
+		seg, _ := p.getSink(addr)
 		seg.InFrom(p.In)
 	}
 }
@@ -87,11 +89,27 @@ func (p *Pipeline[V]) Segment(addr address.Address, seg Segment[V]) {
 	p.setSegment(addr, seg)
 }
 
+// Source sets the Source at the given address.
+func (p *Pipeline[V]) Source(addr address.Address, src Source[V]) {
+	p.setSource(addr, src)
+}
+
+// Sink sets the Sink at the given address.
+func (p *Pipeline[V]) Sink(addr address.Address, sink Sink[V]) {
+	p.setSink(addr, sink)
+}
+
 // Flow implements the Segment interface.
 func (p *Pipeline[V]) Flow(ctx Context) {
 	p.constructEndpointRoutes()
 	for _, seg := range p.segments {
 		seg.Flow(ctx)
+	}
+	for _, source := range p.sources {
+		source.Flow(ctx)
+	}
+	for _, sink := range p.sinks {
+		sink.Flow(ctx)
 	}
 }
 
@@ -119,4 +137,30 @@ func (p *Pipeline[V]) getSegment(addr address.Address) (Segment[V], bool) {
 
 func (p *Pipeline[V]) setSegment(addr address.Address, seg Segment[V]) {
 	p.segments[addr] = seg
+}
+
+func (p *Pipeline[V]) getSource(target address.Address) (Source[V], bool) {
+	source, ok := p.sources[target]
+	if ok {
+		return source, ok
+	}
+	source, ok = p.getSegment(target)
+	return source, ok
+}
+
+func (p *Pipeline[V]) setSource(addr address.Address, source Source[V]) {
+	p.sources[addr] = source
+}
+
+func (p *Pipeline[V]) getSink(addr address.Address) (Sink[V], bool) {
+	sink, ok := p.sinks[addr]
+	if ok {
+		return sink, ok
+	}
+	sink, ok = p.getSegment(addr)
+	return sink, ok
+}
+
+func (p *Pipeline[V]) setSink(addr address.Address, sink Sink[V]) {
+	p.sinks[addr] = sink
 }

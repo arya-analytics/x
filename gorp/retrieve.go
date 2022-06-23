@@ -42,6 +42,10 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] { setEntry[K, E](r, entry
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
 func (r Retrieve[K, E]) Exec(db *DB) error { return (&retrieve[K, E]{DB: db}).Exec(r) }
 
+func (r Retrieve[K, E]) Exists(db *DB) (bool, error) {
+	return (&retrieve[K, E]{DB: db}).Exists(r)
+}
+
 // |||||| FILTERS ||||||
 
 const filtersKey query.OptionKey = "filters"
@@ -153,6 +157,20 @@ func (r *retrieve[K, E]) Exec(q query.Query) error {
 		return r.whereKeys(q)
 	}
 	return r.filter(q)
+}
+
+func (r *retrieve[K, E]) Exists(q query.Query) (bool, error) {
+	if keys, ok := getWhereKeys[K](q); ok {
+		entries := make([]E, 0, len(keys))
+		setEntries[K, E](q, &entries)
+		err := r.whereKeys(q)
+		return len(entries) == len(keys), err
+	}
+	entries := make([]E, 0, 1)
+	setEntries[K, E](q, &entries)
+	err := r.filter(q)
+	return len(entries) > 0, err
+
 }
 
 func (r *retrieve[K, E]) whereKeys(q query.Query) error {

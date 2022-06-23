@@ -59,39 +59,37 @@ type Stream[I, O Message] interface {
 	// cause the server to abort the stream and return an error. The transport
 	// implementation is expected to send the fatal error as the final message
 	// over the stream.
-	Handle(func(ctx context.Context, srv StreamServer[I, O]) error)
+	Handle(func(ctx context.Context, server StreamServer[I, O]) error)
 }
 
 // StreamClient is the client side interface of Stream transport.
 type StreamClient[I, O Message] interface {
-	// Send sends a request to the target server. The returned error represents a
-	// fatal error encountered during message transfer over the network OR a fatal
-	// error encountered by the server while processing the request. In any case,
-	// the client is expected to abort future streams when a non-nil error is returned.
-	Send(I) error
-	// CloseSend closes the stream and sends a (INSERT HERE) message to the server.
-	// CloseSend is NOT safe to call concurrently with Send. Send must panic if called
-	// after CloseSend.
-	CloseSend() error
-	// Receive receives a response from the server. The returned error represents a
-	// fatal error encountered during message transfer over the network OR a fatal
-	// error encountered by the server while processing the response. In any case,
-	// the client is expected to abort future streams when a non-nil error is returned.
-	Receive() (O, error)
+	StreamSender[I]
+	StreamReceiver[O]
 }
 
+// StreamServer is the server side interface of Stream transport.
 type StreamServer[I, O Message] interface {
-	// Receive receives a request from the client. The returned error represents a
+	StreamReceiver[I]
+	StreamSender[O]
+}
+
+type StreamReceiver[M Message] interface {
+	// Receive receives a request the sender. The returned error represents a
 	// fatal error encountered during message transfer over the network OR a fatal
-	// error encountered by the client while processing the request. In any case,
-	// the server is expected to abort future streams when a non-nil error is returned.
-	Receive() (I, error)
-	// Send sends a response to the client. The returned error represents a
+	// error encountered by the sender while processing a message. In any case,
+	// the receiver is expected to abort future streams when a non-nil error is
+	// returned.
+	Receive() (M, error)
+}
+
+type StreamSender[M Message] interface {
+	// Send sends a response to the receiver. The returned error represents a
 	// fatal error encountered during message transfer over the network OR a fatal
-	// error encountered by the client while processing the request. In any case,
-	// the server is expected to abort the stream when a non-nil error is returned.
-	Send(O) error
-	// CloseSend closes the stream and sends a (INSERT HERE) message to the client.
+	// error encountered by the receiver while processing the request. In any case,
+	// the sender is expected to abort the stream when a non-nil error is returned.
+	Send(M) error
+	// CloseSend closes the stream and sends a transport.EOF message to the receiver.
 	// CloseSend is NOT safe to call concurrently with Send. Send must panic if called
 	// after CloseSend.
 	CloseSend() error

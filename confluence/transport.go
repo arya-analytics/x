@@ -6,37 +6,18 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-// Client wraps transport.StreamClient to provide a confluence compatible
-// interface for sending and receiving messages over the network.
-type Client[I, O transport.Message] struct {
-	Client    transport.StreamClient[I, O]
-	Requests  UnarySink[I]
-	Responses UnarySource[O]
+// Sender wraps transport.StreamSender to provide a confluence compatible
+// interface for sending messages over a network transport.
+type Sender[M transport.Message] struct {
+	Sender transport.StreamSender[M]
+	UnarySink[M]
 }
 
-// Flow implements confluence.Context.
-func (tc *Client[I, O]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			default:
-				res, err := tc.Client.Receive()
-				if errors.Is(err, transport.EOF) {
-					return nil
-				}
-				if err != nil {
-					ctx.ErrC <- err
-					return nil
-				}
-				tc.Responses.Out.Inlet() <- res
-			}
-		}
-	})
+// Flow implements Flow.
+func (s *Sender[M]) Flow(ctx Context) {
 	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		defer func() {
-			if err := tc.Client.CloseSend(); err != nil {
+			if err := s.Sender.CloseSend(); err != nil {
 				ctx.ErrC <- err
 			}
 		}()
@@ -44,11 +25,12 @@ func (tc *Client[I, O]) Flow(ctx Context) {
 			select {
 			case <-sig:
 				return nil
-			case req, ok := <-tc.Requests.In.Outlet():
+			case req, ok := <-s.UnarySink.In.Outlet():
 				if !ok {
 					return nil
 				}
-				if err := tc.Client.Send(req); err != nil {
+				if err := s.Sender.Send(req); err != nil {
+					ctx.ErrC <- err
 					return nil
 				}
 			}
@@ -56,51 +38,30 @@ func (tc *Client[I, O]) Flow(ctx Context) {
 	})
 }
 
-// Server wraps transport.StreamServer to provide a confluence compatible interface
-// for sending and receiving messages over the network.
-type Server[I, O transport.Message] struct {
-	Server    transport.StreamServer[I, O]
-	Requests  UnarySource[I]
-	Responses UnarySink[O]
+// Receiver wraps transport.StreamReceiver to provide a confluence compatible
+// interface for receiving messages from a network transport.
+type Receiver[M transport.Message] struct {
+	Receiver transport.StreamReceiver[M]
+	UnarySource[M]
 }
 
-func (tc *Server[I, O]) Flow(ctx Context) {
+// Flow implements Flow.
+func (r *Receiver[M]) Flow(ctx Context) {
 	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
 		for {
 			select {
 			case <-sig:
 				return nil
 			default:
-				req, err := tc.Server.Receive()
+				res, err := r.Receiver.Receive()
 				if errors.Is(err, transport.EOF) {
 					return nil
 				}
 				if err != nil {
 					ctx.ErrC <- err
-					return err
-				}
-				tc.Requests.Out.Inlet() <- req
-			}
-		}
-	})
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		defer func() {
-			if err := tc.Server.CloseSend(); err != nil {
-				ctx.ErrC <- err
-			}
-		}()
-		for {
-			select {
-			case <-sig:
-				return nil
-			case res, ok := <-tc.Responses.In.Outlet():
-				if !ok {
 					return nil
 				}
-				if err := tc.Server.Send(res); err != nil {
-					ctx.ErrC <- err
-					return nil
-				}
+				r.UnarySource.Out.Inlet() <- res
 			}
 		}
 	})
