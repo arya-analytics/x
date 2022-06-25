@@ -26,7 +26,7 @@ type Conductor interface {
 
 // Go is the core interface for forking a new goroutine.
 type Go interface {
-	// Go starts a new goroutine controlled by the provided Signal. When the Signal.Done()
+	// Go starts a new goroutine controlled by the provided Signal. When the Conductor.Done()
 	// is closed, the goroutine should gracefully complete its remaining work and exit.
 	// Additional parameters can be passed to the goroutine to modify particular
 	// behavior. See option specific documentation for more.

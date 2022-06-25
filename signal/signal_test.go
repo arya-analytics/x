@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var _ = Describe("Signal", func() {
+var _ = Describe("Conductor", func() {
 	Describe("Shutting Down", func() {
 		It("Should close running goroutines when a context is cancelled", func() {
 			ctx, cancel := context.WithCancel(context.Background())
