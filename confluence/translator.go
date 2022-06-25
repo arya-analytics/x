@@ -33,5 +33,6 @@ func (t *CoreTranslator[I, O]) Flow(ctx Context) {
 			return err
 		}
 		t.UnarySource.Out.Inlet() <- tv
+		return nil
 	})
 }
