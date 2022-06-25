@@ -58,7 +58,7 @@ type Context struct {
 	// a nil channel will not affect operations).
 	ErrC chan error
 	// signal.Conductor manages all goroutines spawned under Context.
-	//This is the primary means for shutting down a confluence Segment or Pipeline.
+	// This is the primary means for shutting down a confluence Segment or Pipeline.
 	// Context must not be nil.
 	signal.Conductor
 }
