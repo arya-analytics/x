@@ -21,3 +21,7 @@ func (r *RouteBuilder[V]) RouteInletTo(to ...address.Address) {
 func (r *RouteBuilder[V]) RouteOutletFrom(from ...address.Address) {
 	r.CatchSimple.Exec(func() error { return r.Pipeline.RouteOutletFrom(from...) })
 }
+
+func (r *RouteBuilder[V]) RouteUnary(from, to address.Address, cap int) {
+	r.Route(UnaryRouter[V]{FromAddr: from, ToAddr: to, Capacity: cap})
+}

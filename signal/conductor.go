@@ -5,6 +5,15 @@ import (
 	"sync"
 )
 
+// Signal is an extension of the standard context.Context that provides a way to
+// signal a goroutine to stop. Go best practices recommend that contexts should
+// only be passed as function arguments. The signal package is designed around the notion
+// that goroutines may be forked dynamically in a manner that is not known to the
+// parent. As a result, it's not possible to explicitly pass a context.Context to
+// every goroutine serving a particular request. Instead,
+// the signal package provides Signal, a pseudo-context that can be passed to goroutines
+// through the Go interface. Wrapping a standard context.Context object is used to indicate
+// to developers that this context does not behave according to typical go practices.
 type Signal struct {
 	context.Context
 }
@@ -15,8 +24,13 @@ type Conductor interface {
 	WaitGroup
 }
 
+// Go is the core interface for forking a new goroutine.
 type Go interface {
-	Go(f func(ctx Signal) error, opts ...GoOption)
+	// Go starts a new goroutine controlled by the provided Signal. When the Signal.Done()
+	// is closed, the goroutine should gracefully complete its remaining work and exit.
+	// Additional parameters can be passed to the goroutine to modify particular
+	// behavior. See option specific documentation for more.
+	Go(f func(sig Signal) error, opts ...GoOption)
 }
 
 // WaitGroup provides methods for detecting and waiting for the exit of goroutines
