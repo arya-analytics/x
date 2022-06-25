@@ -32,20 +32,20 @@ func (p *Pipeline[V]) NewRouteBuilder() *RouteBuilder[V] {
 }
 
 func (p *Pipeline[V]) route(fromTarget, toTarget address.Address, stream Stream[V]) error {
-	from, ok := p.getSegment(fromTarget)
+	from, ok := p.getSource(fromTarget)
 	if !ok {
 		return ErrNotFound
 	}
-	to, ok := p.getSegment(toTarget)
+	to, ok := p.getSink(toTarget)
 	if !ok {
 		return ErrNotFound
 	}
 
-	stream.SetInletAddress(toTarget)
-	to.OutTo(stream)
+	stream.SetInletAddress(fromTarget)
+	to.InFrom(stream)
 
-	stream.SetOutletAddress(fromTarget)
-	from.InFrom(stream)
+	stream.SetOutletAddress(toTarget)
+	from.OutTo(stream)
 
 	p.setStream(fromTarget, toTarget, stream)
 	return nil
