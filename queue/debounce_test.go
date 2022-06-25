@@ -22,7 +22,7 @@ var _ = Describe("Debounce", func() {
 		}
 		req = confluence.NewStream[[]int](10)
 		res = confluence.NewStream[[]int](10)
-		ctx = confluence.DefaultContext()
+		ctx = confluence.WrapContext()
 		d.InFrom(req)
 		d.OutTo(res)
 		d.Flow(ctx)

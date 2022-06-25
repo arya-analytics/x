@@ -28,7 +28,7 @@ var _ = Describe("Switch", func() {
 		router.InFrom(stream)
 		router.OutTo(double)
 		router.OutTo(single)
-		ctx := confluence.DefaultContext()
+		ctx := confluence.WrapContext()
 		router.Flow(ctx)
 		stream.Inlet() <- 1
 		stream.Inlet() <- 2
@@ -49,7 +49,7 @@ var _ = Describe("Switch", func() {
 		router.InFrom(stream1)
 		router.InFrom(stream2)
 		router.OutTo(single)
-		ctx := confluence.DefaultContext()
+		ctx := confluence.WrapContext()
 		router.Flow(ctx)
 		stream1.Inlet() <- 1
 		stream1.Inlet() <- 2

@@ -13,7 +13,7 @@ var _ = Describe("transform", func() {
 		square := &confluence.Transform[int]{Transform: func(ctx confluence.Context, i int) (int, bool) { return i * i, true }}
 		square.InFrom(inlet)
 		square.OutTo(outlet)
-		ctx := confluence.DefaultContext()
+		ctx := confluence.WrapContext()
 		square.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2

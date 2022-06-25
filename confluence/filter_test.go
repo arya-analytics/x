@@ -13,7 +13,7 @@ var _ = Describe("Filter", func() {
 		filter := confluence.Filter[int]{Filter: func(ctx confluence.Context, x int) bool { return x%3 == 0 }}
 		filter.InFrom(inlet)
 		filter.OutTo(outlet)
-		ctx := confluence.DefaultContext()
+		ctx := confluence.WrapContext()
 		filter.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2

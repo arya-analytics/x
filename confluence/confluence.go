@@ -1,9 +1,8 @@
 package confluence
 
 import (
-	"context"
 	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/shutdown"
+	"github.com/arya-analytics/x/signal"
 	"time"
 )
 
@@ -49,18 +48,19 @@ type Segment[V Value] interface {
 
 // |||||| CONTEXT ||||||
 
+// Context is provided to all segments at runtime, and is the main method for managing
+// pipeline execution.
 type Context struct {
-	Ctx      context.Context
-	ErrC     chan error
-	Shutdown shutdown.Shutdown
-}
-
-func DefaultContext() Context {
-	return Context{
-		Ctx:      context.Background(),
-		ErrC:     make(chan error),
-		Shutdown: shutdown.New(),
-	}
+	// ErrC is provided to every goroutine spawned by a Segment.
+	// This channel is provided as a method for communicating transient errors
+	// encountered during segment operation. It is provided purely as a utility to the
+	// caller, and is not called by any confluence internal components (i.e. passing
+	// a nil channel will not affect operations).
+	ErrC chan error
+	// signal.Conductor manages all goroutines spawned under Context.
+	//This is the primary means for shutting down a confluence Segment or Pipeline.
+	// Context must not be nil.
+	signal.Conductor
 }
 
 // |||||| SWITCH ||||||
@@ -70,7 +70,7 @@ func DefaultContext() Context {
 // Map for when the addresses of input streams are not important.
 type Switch[V Value] struct {
 	// Switch is a function that resolves the address of a Value.
-	Switch func(ctx Context, value V) address.Address
+	Switch func(ctx Context, value V) (address.Address, error)
 	inFrom []Outlet[V]
 	outTo  map[address.Address]Inlet[V]
 }
@@ -92,31 +92,29 @@ func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
 
 // Flow implements the Segment interface.
 func (r *Switch[V]) Flow(ctx Context) {
-	for _, outlet := range r.inFrom {
+	goRangeEach(ctx, r.inFrom, func(v V) error {
+		addr, err := r.Switch(ctx, v)
+		if err != nil || addr == "" {
+			return err
+		}
+		inlet, ok := r.outTo[addr]
+		if !ok {
+			panic("address not found")
+		}
+		inlet.Inlet() <- v
+		return nil
+	})
+}
+
+func goRangeEach[V Value](ctx Context, outlets []Outlet[V], f func(v V) error) {
+	for _, outlet := range outlets {
 		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					addr := r.Switch(ctx, v)
-					if addr == "" {
-						continue
-					}
-					inlet, ok := r.outTo[addr]
-					if !ok {
-						panic("address not found")
-					}
-					inlet.Inlet() <- v
-				}
-			}
-		})
+		signal.GoRange(ctx, outlet.Outlet(), func(v V) error { return f(v) })
 	}
 }
 
 type BatchSwitch[V Value] struct {
-	Switch func(ctx Context, value V) map[address.Address]V
+	Switch func(ctx Context, value V) (map[address.Address]V, error)
 	sw     Switch[V]
 }
 
@@ -125,26 +123,20 @@ func (b *BatchSwitch[V]) InFrom(outlets ...Outlet[V]) { b.sw.InFrom(outlets...) 
 func (b *BatchSwitch[V]) OutTo(inlets ...Inlet[V]) { b.sw.OutTo(inlets...) }
 
 func (b *BatchSwitch[V]) Flow(ctx Context) {
-	for _, outlet := range b.sw.inFrom {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					addrMap := b.Switch(ctx, v)
-					for addr, batch := range addrMap {
-						inlet, ok := b.sw.outTo[addr]
-						if !ok {
-							panic("address not found")
-						}
-						inlet.Inlet() <- batch
-					}
-				}
+	goRangeEach(ctx, b.sw.inFrom, func(v V) error {
+		addrMap, err := b.Switch(ctx, v)
+		if err != nil {
+			return err
+		}
+		for addr, batch := range addrMap {
+			inlet, ok := b.sw.outTo[addr]
+			if !ok {
+				panic("[confluence.BatchSwitch] - address not found")
 			}
-		})
-	}
+			inlet.Inlet() <- batch
+		}
+		return nil
+	})
 }
 
 // |||||| CONFLUENCE ||||||
@@ -168,21 +160,12 @@ func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) {
 
 // Flow implements the Segment interface.
 func (d *Confluence[V]) Flow(ctx Context) {
-	for _, outlet := range d.In {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					for _, inlet := range d.Out {
-						inlet.Inlet() <- v
-					}
-				}
-			}
-		})
-	}
+	goRangeEach(ctx, d.In, func(v V) error {
+		for _, inlet := range d.Out {
+			inlet.Inlet() <- v
+		}
+		return nil
+	})
 }
 
 // Delta is similar to Confluence. It reads values from a set of input streams and pipes them to a set of output streams.
@@ -205,26 +188,17 @@ func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
 
 // Flow implements the Segment interface.
 func (d *Delta[V]) Flow(ctx Context) {
-	for _, outlet := range d.In {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-				o:
-					for _, inlet := range d.Out {
-						select {
-						case inlet.Inlet() <- v:
-							break o
-						default:
-						}
-					}
-				}
+	goRangeEach(ctx, d.In, func(v V) error {
+	o:
+		for _, inlet := range d.Out {
+			select {
+			case inlet.Inlet() <- v:
+				break o
+			default:
 			}
-		})
-	}
+		}
+		return nil
+	})
 }
 
 // |||||| TRANSFORM ||||||
@@ -232,23 +206,19 @@ func (d *Delta[V]) Flow(ctx Context) {
 // Transform is a segment that reads values from an input streamImpl, executes a transformation on them,
 // and sends them to an out Stream.
 type Transform[V Value] struct {
-	Transform func(ctx Context, value V) (V, bool)
+	Transform func(ctx Context, value V) (V, bool, error)
 	Linear[V]
 }
 
 // Flow implements the Segment interface.
 func (f *Transform[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			case v := <-f.In.Outlet():
-				if tv, ok := f.Transform(ctx, v); ok {
-					f.Out.Inlet() <- tv
-				}
-			}
+	signal.GoRange(ctx, f.In.Outlet(), func(v V) error {
+		v, ok, err := f.Transform(ctx, v)
+		if !ok || err != nil {
+			return err
 		}
+		f.Linear.Out.Inlet() <- v
+		return nil
 	})
 }
 
@@ -257,32 +227,33 @@ func (f *Transform[V]) Flow(ctx Context) {
 // Filter is a segment that reads values from an input Stream, filters them through a function, and
 // optionally discards them to an output Stream.
 type Filter[V Value] struct {
-	Filter  func(ctx Context, value V) bool
+	Filter  func(ctx Context, value V) (bool, error)
 	Rejects Inlet[V]
 	Linear[V]
 }
 
 // Flow implements the Segment interface.
 func (f *Filter[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			case v := <-f.In.Outlet():
-				if f.Filter(ctx, v) {
-					f.Out.Inlet() <- v
-				} else if f.Rejects != nil {
-					f.Rejects.Inlet() <- v
-				}
-			}
+	signal.GoRange(ctx, f.In.Outlet(), func(v V) error {
+		ok, err := f.Filter(ctx, v)
+		if err != nil {
+			return err
 		}
+		if ok {
+			f.Linear.Out.Inlet() <- v
+		} else {
+			f.Rejects.Inlet() <- v
+		}
+		return nil
 	})
 }
 
 // |||||| LINEAR ||||||
 
-// Linear is a segment that reads values from a single input streamImpl and pipes them to a single output streamImpl.
+// Linear is a segment that reads values from a single input stream and pipes them
+// to a single output stream. Linear is an abstract segment, meaning it should not be
+// instantiated directly, and should be embedded in other segments. Linear will
+// panic if Flow is called.
 type Linear[V Value] struct {
 	In  Outlet[V]
 	Out Inlet[V]
@@ -291,7 +262,7 @@ type Linear[V Value] struct {
 // InFrom implements the Segment interface.
 func (l *Linear[V]) InFrom(outlets ...Outlet[V]) {
 	if len(outlets) == 0 {
-		panic("linear must have exactly one outlet")
+		panic("[confluence.Linear] must have exactly one inlet")
 	}
 	l.In = outlets[0]
 }
@@ -299,30 +270,20 @@ func (l *Linear[V]) InFrom(outlets ...Outlet[V]) {
 // OutTo implements the Segment interface.
 func (l *Linear[V]) OutTo(inlets ...Inlet[V]) {
 	if len(inlets) == 0 {
-		panic("linear must have exactly one outlet")
+		panic("[confluence.Linear] - must have exactly one outlet")
 	}
 	l.Out = inlets[0]
 }
 
 // Flow implements the Segment interface.
-func (l *Linear[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			case l.Out.Inlet() <- <-l.In.Outlet():
-			}
-		}
-	})
-}
+func (l *Linear[V]) Flow(ctx Context) { panic("[confluence.Linear] - abstract segment") }
 
 // |||||| MAP ||||||
 
 // Map is a segment that reads values from an addresses input streamImpl, maps them to an output address, and
 // sends them. Map is a relatively inefficient Segment, use Switch when possible.
 type Map[V Value] struct {
-	Map func(ctx Context, addr address.Address, v Value) address.Address
+	Map func(ctx Context, addr address.Address, v Value) (address.Address, error)
 	In  map[address.Address]Outlet[V]
 	Out map[address.Address]Inlet[V]
 }
@@ -350,15 +311,14 @@ func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
 // Flow implements the Segment interface.
 func (m *Map[V]) Flow(ctx Context) {
 	for inAddr, outlet := range m.In {
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					m.Out[m.Map(ctx, inAddr, v)].Inlet() <- v
-				}
+		outlet = outlet
+		signal.GoRange(ctx, outlet.Outlet(), func(v V) error {
+			addr, err := m.Map(ctx, inAddr, v)
+			if err != nil {
+				return err
 			}
+			m.Out[addr].Inlet() <- v
+			return nil
 		})
 	}
 }
@@ -366,18 +326,20 @@ func (m *Map[V]) Flow(ctx Context) {
 // |||||| EMITTER ||||||
 
 type Emitter[V Value] struct {
-	Emit     func(ctx Context) V
-	Store    func(ctx Context, value V)
+	Emit     func(ctx Context) (V, error)
+	Store    func(ctx Context, value V) error
 	Interval time.Duration
 	Linear[V]
 }
 
 func (e *Emitter[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for batch := range e.In.Outlet() {
-			e.Store(ctx, batch)
+	signal.GoRange(ctx, e.In.Outlet(), func(batch V) error { return e.Store(ctx, batch) })
+	signal.GoTick(ctx, e.Interval, func(t time.Time) error {
+		v, err := e.Emit(ctx)
+		if err != nil {
+			return err
 		}
+		e.Out.Inlet() <- v
 		return nil
 	})
-	ctx.Shutdown.GoTick(e.Interval, func() error { e.Out.Inlet() <- e.Emit(ctx); return nil })
 }
