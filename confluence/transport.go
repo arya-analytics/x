@@ -15,7 +15,7 @@ type Sender[M transport.Message] struct {
 
 // Flow implements Flow.
 func (s *Sender[M]) Flow(ctx Context) {
-	ctx.Go(func(sig signal.Signal) error {
+	ctx.Go(func(sig signal.Context) error {
 		defer func() {
 			if err := s.Sender.CloseSend(); err != nil {
 				ctx.ErrC <- err
@@ -47,7 +47,7 @@ type Receiver[M transport.Message] struct {
 
 // Flow implements Flow.
 func (r *Receiver[M]) Flow(ctx Context) {
-	ctx.Go(func(sig signal.Signal) error {
+	ctx.Go(func(sig signal.Context) error {
 		for {
 			select {
 			case <-sig.Done():

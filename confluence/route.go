@@ -25,3 +25,9 @@ func (r *RouteBuilder[V]) RouteOutletFrom(from ...address.Address) {
 func (r *RouteBuilder[V]) RouteUnary(from, to address.Address, cap int) {
 	r.Route(UnaryRouter[V]{FromAddr: from, ToAddr: to, Capacity: cap})
 }
+
+func (r *RouteBuilder[V]) PanicIfErr() {
+	if r.Error() != nil {
+		panic(r.Error())
+	}
+}

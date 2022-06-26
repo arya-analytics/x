@@ -12,44 +12,44 @@ var _ = Describe("Census", func() {
 	Describe("Count", func() {
 		It("Should return the number of running goroutines", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			c := signal.New(ctx)
-			Expect(c.Count()).To(Equal(0))
-			c.Go(func(sig signal.Signal) error {
+			sig := signal.New(ctx)
+			Expect(sig.Count()).To(Equal(0))
+			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
 			})
-			Expect(c.Count()).To(Equal(1))
+			Expect(sig.Count()).To(Equal(1))
 			done := make(chan struct{})
-			c.Go(func(sig signal.Signal) error {
+			sig.Go(func() error {
 				<-done
 				return nil
 			})
-			Expect(c.Count()).To(Equal(2))
+			Expect(sig.Count()).To(Equal(2))
 			done <- struct{}{}
-			Expect(c.WaitOnAny(true)).To(BeNil())
-			Expect(c.Count()).To(Equal(1))
+			Expect(sig.WaitOnAny(true)).To(BeNil())
+			Expect(sig.Count()).To(Equal(1))
 			cancel()
-			Expect(errors.Is(c.WaitOnAny(false), context.Canceled)).To(BeTrue())
-			Expect(c.Count()).To(Equal(0))
+			Expect(errors.Is(sig.WaitOnAny(false), context.Canceled)).To(BeTrue())
+			Expect(sig.Count()).To(Equal(0))
 		})
 	})
 	Describe("GoCount", func() {
 		It("Should return the total number of goroutines forked", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			c := signal.New(ctx)
-			Expect(c.GoCount()).To(Equal(0))
-			c.Go(func(sig signal.Signal) error {
+			sig := signal.New(ctx)
+			Expect(sig.GoCount()).To(Equal(0))
+			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
 			})
-			Expect(c.GoCount()).To(Equal(1))
-			c.Go(func(sig signal.Signal) error {
+			Expect(sig.GoCount()).To(Equal(1))
+			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
 			})
 			cancel()
-			Expect(errors.Is(c.WaitOnAll(), context.Canceled)).To(BeTrue())
-			Expect(c.GoCount()).To(Equal(2))
+			Expect(errors.Is(sig.WaitOnAll(), context.Canceled)).To(BeTrue())
+			Expect(sig.GoCount()).To(Equal(2))
 		})
 	})
 

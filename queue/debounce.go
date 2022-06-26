@@ -24,7 +24,7 @@ const emptyCycleShutdownCount = 5
 
 // Flow starts the queue.
 func (d *Debounce[V]) Flow(ctx confluence.Context) {
-	ctx.Go(func(sig signal.Signal) error {
+	ctx.Go(func(sig signal.Context) error {
 		var (
 			t        = time.NewTicker(d.Config.Interval)
 			sd       = false

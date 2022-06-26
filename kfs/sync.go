@@ -32,7 +32,7 @@ func (s *Sync[T]) Start() <-chan error {
 	errs := make(chan error)
 	c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(errs)))
 	t := time.NewTicker(s.Interval)
-	s.Conductor.Go(func(sig signal.Signal) error {
+	s.Conductor.Go(func(sig signal.Context) error {
 		for {
 			select {
 			case <-sig.Done():

@@ -13,35 +13,35 @@ var _ = Describe("Conductor", func() {
 	Describe("Shutting Down", func() {
 		It("Should close running goroutines when a context is cancelled", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			c := signal.New(ctx)
-			c.Go(func(sig signal.Signal) error {
+			sig := signal.New(ctx)
+			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
 			})
 			cancel()
-			Expect(c.WaitOnAll()).To(MatchError(context.Canceled))
+			Expect(sig.WaitOnAll()).To(MatchError(context.Canceled))
 		})
 		It("Should prioritize a non-context error", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			c := signal.New(ctx)
-			c.Go(func(sig signal.Signal) error {
+			sig := signal.New(ctx)
+			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
 			})
-			c.Go(func(sig signal.Signal) error {
+			sig.Go(func() error {
 				<-sig.Done()
 				return errors.New("error")
 			})
 			cancel()
-			Expect(errors.Is(c.WaitOnAll(), errors.New("error"))).To(BeTrue())
+			Expect(errors.Is(sig.WaitOnAll(), errors.New("error"))).To(BeTrue())
 		})
 	})
 	Describe("WaitOnAny", func() {
 		Context("allowNil is false", func() {
 			It("Should return the first non-nil error routine to shutdown", func() {
 				c := signal.New(context.Background())
-				c.Go(func(sig signal.Signal) error { return nil })
-				c.Go(func(sig signal.Signal) error {
+				c.Go(func() error { return nil })
+				c.Go(func() error {
 					time.Sleep(500 * time.Microsecond)
 					return errors.New("error")
 				})
@@ -51,8 +51,8 @@ var _ = Describe("Conductor", func() {
 		Context("allowNil is true", func() {
 			It("Should return the first nil error routine to shutdown", func() {
 				c := signal.New(context.Background())
-				c.Go(func(sig signal.Signal) error { return nil })
-				c.Go(func(sig signal.Signal) error {
+				c.Go(func() error { return nil })
+				c.Go(func() error {
 					time.Sleep(500 * time.Microsecond)
 					return errors.New("error")
 				})

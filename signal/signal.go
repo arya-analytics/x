@@ -5,32 +5,22 @@ import (
 	"sync"
 )
 
-// Signal is an extension of the standard context.Context that provides a way to
-// signal a goroutine to stop. Go best practices recommend that contexts should
-// only be passed as function arguments. The signal package is designed around the notion
-// that goroutines may be forked dynamically in a manner that is not known to the
-// parent. As a result, it's not possible to explicitly pass a context.Context to
-// every goroutine serving a particular request. Instead,
-// the signal package provides Signal, a pseudo-context that can be passed to goroutines
-// through the Go interface. Wrapping a standard context.Context object is used to indicate
-// to developers that this context does not behave according to typical go practices.
-type Signal struct {
+// Context is an extension of the standard context.Context that provides a way to
+// signal a goroutine to stop.
+type Context interface {
 	context.Context
-}
-
-type Conductor interface {
 	Go
-	Census
 	WaitGroup
+	Census
 }
 
 // Go is the core interface for forking a new goroutine.
 type Go interface {
-	// Go starts a new goroutine controlled by the provided Signal. When the Conductor.Done()
+	// Go starts a new goroutine controlled by the provided Context. When Context.Done()
 	// is closed, the goroutine should gracefully complete its remaining work and exit.
 	// Additional parameters can be passed to the goroutine to modify particular
 	// behavior. See option specific documentation for more.
-	Go(f func(sig Signal) error, opts ...GoOption)
+	Go(f func() error, opts ...GoOption)
 }
 
 // WaitGroup provides methods for detecting and waiting for the exit of goroutines
@@ -56,22 +46,22 @@ type Census interface {
 	GoCount() int
 }
 
-func New(ctx context.Context, opts ...Option) Conductor {
+type core struct {
+	*options
+	context.Context
+	mu       sync.RWMutex
+	close    chan Routine
+	routines map[string]Routine
+}
+
+func New(ctx context.Context, opts ...Option) Context {
 	c := &core{
-		signal:   Signal{ctx},
+		Context:  ctx,
 		options:  newOptions(opts...),
 		routines: make(map[string]Routine),
 	}
-	c._close = make(chan Routine, c.options.closeBufferSize)
+	c.close = make(chan Routine, c.options.closeBufferSize)
 	return c
-}
-
-type core struct {
-	*options
-	signal   Signal
-	mu       sync.RWMutex
-	_close   chan Routine
-	routines map[string]Routine
 }
 
 // Count implements the Census interface.
@@ -106,7 +96,7 @@ func (c *core) waitForNToExit(count int, allowNil bool) error {
 		numExited int
 		err       error
 	)
-	for r := range c._close {
+	for r := range c.close {
 		if !moreSignificant(err, r.Error) {
 			err = r.Error
 			numExited++
@@ -120,7 +110,7 @@ func (c *core) waitForNToExit(count int, allowNil bool) error {
 	return err
 }
 
-func (c *core) open(key string, options *goOptions) {
+func (c *core) markOpen(key string, options *goOptions) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.routines[key] = Routine{Key: key, Running: true, options: options}
@@ -132,14 +122,14 @@ func (c *core) get(key string) Routine {
 	return c.routines[key]
 }
 
-func (c *core) close(key string, err error) {
+func (c *core) markClosed(key string, err error) {
 	r := c.get(key)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	r.Running = false
 	r.Error = err
 	c.routines[key] = r
-	c._close <- r
+	c.close <- r
 }
 
 type Routine struct {
