@@ -4,9 +4,7 @@ package signal
 
 type GoOption func(o *goOptions)
 
-func WithDefer(f func()) GoOption {
-	return func(o *goOptions) { o.deferals = append(o.deferals, f) }
-}
+func WithDefer(f func()) GoOption { return func(o *goOptions) { o.deferals = append(o.deferals, f) } }
 
 type goOptions struct {
 	deferals []func()
@@ -24,9 +22,11 @@ func newGoOptions(opts []GoOption) *goOptions {
 
 type Option func(o *options)
 
+func WithRoutineCap(cap int) Option { return func(o *options) { o.routineCap = uint(cap) } }
+
 type options struct {
-	closeBufferSize uint
-	defaultGoOpts   *goOptions
+	routineCap    uint
+	defaultGoOpts *goOptions
 }
 
 func newOptions(opts ...Option) *options {
@@ -39,7 +39,7 @@ func newOptions(opts ...Option) *options {
 }
 
 func mergeDefaultOptions(o *options) {
-	o.closeBufferSize = 100
+	o.routineCap = 50
 
 	if o.defaultGoOpts == nil {
 		o.defaultGoOpts = &goOptions{}

@@ -60,15 +60,14 @@ var _ = Describe("Go", func() {
 	})
 	Describe("GoTick", func() {
 		It("Should execute the function every time the ticker fires", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 1250*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(context.Background(), 1250*time.Microsecond)
 			defer cancel()
-			c := signal.Wrap(ctx)
 			count := 0
-			signal.GoTick(c, 500*time.Microsecond, func(t time.Time) error {
+			signal.GoTick(ctx, 500*time.Microsecond, func(t time.Time) error {
 				count++
 				return nil
 			})
-			Expect(errors.Is(c.WaitOnAll(), context.DeadlineExceeded)).To(BeTrue())
+			Expect(errors.Is(ctx.WaitOnAll(), context.DeadlineExceeded)).To(BeTrue())
 			Expect(count).To(Equal(2))
 		})
 	})
