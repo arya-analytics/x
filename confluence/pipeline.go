@@ -41,11 +41,11 @@ func (p *Pipeline[V]) route(fromTarget, toTarget address.Address, stream Stream[
 		return ErrNotFound
 	}
 
-	stream.SetInletAddress(fromTarget)
-	to.InFrom(stream)
-
-	stream.SetOutletAddress(toTarget)
+	stream.SetInletAddress(toTarget)
 	from.OutTo(stream)
+
+	stream.SetOutletAddress(fromTarget)
+	to.InFrom(stream)
 
 	p.setStream(fromTarget, toTarget, stream)
 	return nil

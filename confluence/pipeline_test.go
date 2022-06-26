@@ -1,8 +1,10 @@
 package confluence_test
 
 import (
+	"context"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"sort"
@@ -14,16 +16,23 @@ var _ = Describe("Pipeline", func() {
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
 		pipe.InFrom(inlet)
 		pipe.OutTo(outlet)
-		pipe.Segment("router", &confluence.Switch[int]{Switch: func(ctx confluence.Context, i int) address.Address {
+		pipe.Segment("router", &confluence.Switch[int]{Switch: func(ctx confluence.
+			Context, i int) (address.Address, error) {
 			if i%2 == 0 {
-				return "single"
+				return "single", nil
 			} else {
-				return "double"
+				return "double", nil
 			}
 		}})
 		Expect(pipe.RouteInletTo("router")).To(Succeed())
-		t1 := &confluence.Transform[int]{Transform: func(ctx confluence.Context, i int) (int, bool) { return i * i, true }}
-		t2 := &confluence.Transform[int]{Transform: func(ctx confluence.Context, i int) (int, bool) { return i * i * 2, true }}
+		t1 := &confluence.Transform[int]{Transform: func(ctx confluence.Context,
+			i int) (int, bool, error) {
+			return i * i, true, nil
+		}}
+		t2 := &confluence.Transform[int]{Transform: func(ctx confluence.Context,
+			i int) (int, bool, error) {
+			return i * i * 2, true, nil
+		}}
 		pipe.Segment("single", t1)
 		pipe.Segment("double", t2)
 		Expect(pipe.Route(confluence.MultiRouter[int]{
@@ -32,7 +41,7 @@ var _ = Describe("Pipeline", func() {
 			Stitch:        confluence.StitchWeave,
 		})).To(Succeed())
 		Expect(pipe.RouteOutletFrom("single", "double")).To(Succeed())
-		ctx := confluence.WrapContext()
+		ctx, cancel := confluence.DefaultContext()
 		pipe.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2
@@ -44,7 +53,8 @@ var _ = Describe("Pipeline", func() {
 				break
 			}
 		}
-		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
+		cancel()
+		Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())
 		Expect(values).To(HaveLen(3))
 		sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
 		Expect(values).To(Equal([]int{2, 4, 18}))

@@ -1,6 +1,8 @@
 package confluence
 
 import (
+	"context"
+	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
 	"time"
@@ -60,7 +62,12 @@ type Context struct {
 	// signal.Conductor manages all goroutines spawned under Context.
 	// This is the primary means for shutting down a confluence Segment or Pipeline.
 	// Context must not be nil.
-	signal.Conductor
+	signal.Context
+}
+
+func DefaultContext() (Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return Context{Context: signal.New(ctx), ErrC: make(chan error)}, cancel
 }
 
 // |||||| SWITCH ||||||
@@ -99,7 +106,7 @@ func (r *Switch[V]) Flow(ctx Context) {
 		}
 		inlet, ok := r.outTo[addr]
 		if !ok {
-			panic("address not found")
+			panic(fmt.Sprintf("address %s not found", addr))
 		}
 		inlet.Inlet() <- v
 		return nil
@@ -241,7 +248,7 @@ func (f *Filter[V]) Flow(ctx Context) {
 		}
 		if ok {
 			f.Linear.Out.Inlet() <- v
-		} else {
+		} else if f.Rejects != nil {
 			f.Rejects.Inlet() <- v
 		}
 		return nil
