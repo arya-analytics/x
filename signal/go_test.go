@@ -13,7 +13,7 @@ var _ = Describe("Go", func() {
 	Describe("GoRange", func() {
 		It("Should range through the value of a channel before shutting down", func() {
 			ch := make(chan int)
-			ctx, cancel := signal.New(context.Background())
+			ctx, cancel := signal.WithCancel(context.Background())
 			defer cancel()
 			resV := make([]int, 2)
 			signal.GoRange(ctx, ch, func(v int) error {
@@ -23,12 +23,12 @@ var _ = Describe("Go", func() {
 			ch <- 0
 			ch <- 1
 			close(ch)
-			Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())
+			Expect(ctx.WaitOnAll()).To(Succeed())
 			Expect(resV).To(Equal([]int{0, 1}))
 		})
 		It("Should shut down the routine when a non-nil error is returned", func() {
 			ch := make(chan int)
-			ctx, cancel := signal.New(context.Background())
+			ctx, cancel := signal.WithCancel(context.Background())
 			defer cancel()
 			resV := make([]int, 2)
 			signal.GoRange(ctx, ch, func(v int) error {
@@ -44,7 +44,7 @@ var _ = Describe("Go", func() {
 		})
 		It("Should shut down the routine when the context is cancelled", func() {
 			ch := make(chan int, 3)
-			ctx, cancel := signal.New(context.Background())
+			ctx, cancel := signal.WithCancel(context.Background())
 			resV := make(chan int, 2)
 			signal.GoRange(ctx, ch, func(v int) error {
 				resV <- v

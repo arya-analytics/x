@@ -19,7 +19,7 @@ var _ = Describe("transform", func() {
 		}}
 		square.InFrom(inlet)
 		square.OutTo(outlet)
-		ctx, cancel := signal.New(context.Background())
+		ctx, cancel := signal.WithCancel(context.Background())
 		square.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2

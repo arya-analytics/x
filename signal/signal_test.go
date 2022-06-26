@@ -12,7 +12,7 @@ import (
 var _ = Describe("Conductor", func() {
 	Describe("Shutting Down", func() {
 		It("Should close running goroutines when a context is cancelled", func() {
-			sig, cancel := signal.New(context.Background())
+			sig, cancel := signal.WithCancel(context.Background())
 			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
@@ -21,8 +21,7 @@ var _ = Describe("Conductor", func() {
 			Expect(sig.WaitOnAll()).To(MatchError(context.Canceled))
 		})
 		It("Should prioritize a non-context error", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			sig, cancel := signal.New(ctx)
+			sig, cancel := signal.WithCancel(context.Background())
 			sig.Go(func() error {
 				<-sig.Done()
 				return sig.Err()
@@ -38,7 +37,7 @@ var _ = Describe("Conductor", func() {
 	Describe("WaitOnAny", func() {
 		Context("allowNil is false", func() {
 			It("Should return the first non-nil error routine to shutdown", func() {
-				c, cancel := signal.New(context.Background())
+				c, cancel := signal.WithCancel(context.Background())
 				defer cancel()
 				c.Go(func() error { return nil })
 				c.Go(func() error {
@@ -50,7 +49,7 @@ var _ = Describe("Conductor", func() {
 		})
 		Context("allowNil is true", func() {
 			It("Should return the first nil error routine to shutdown", func() {
-				c, cancel := signal.New(context.Background())
+				c, cancel := signal.WithCancel(context.Background())
 				defer cancel()
 				c.Go(func() error { return nil })
 				c.Go(func() error {

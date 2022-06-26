@@ -59,7 +59,7 @@ type core struct {
 	_numExited int32
 }
 
-func New(ctx context.Context, opts ...Option) (Context, context.CancelFunc) {
+func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(ctx)
 	return Wrap(ctx, opts...), cancel
 }
@@ -125,6 +125,6 @@ func runDeferals(deferals []func()) {
 func moreSignificant(err, reference error) bool {
 	// In the case where both errors are nil, we return false. In the case that both
 	// errors are non nil, err is more significant is reference is a context error.
-	return (err != nil && reference != nil) &&
-		(errors.Is(reference, context.Canceled) || errors.Is(reference, context.DeadlineExceeded))
+	return err != nil &&
+		(reference == nil || errors.Is(reference, context.Canceled) || errors.Is(reference, context.DeadlineExceeded))
 }

@@ -327,5 +327,3 @@ func (e *Emitter[V]) Flow(ctx signal.Context) {
 		return nil
 	})
 }
-
-func panicAbstract() { panic("[confluence]- abstract segment") }

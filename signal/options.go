@@ -1,9 +1,5 @@
 package signal
 
-import (
-	"fmt"
-)
-
 // |||||| GO OPTIONS ||||||
 
 type GoOption func(o *goOptions)
@@ -12,38 +8,16 @@ func WithDefer(f func()) GoOption {
 	return func(o *goOptions) { o.deferals = append(o.deferals, f) }
 }
 
-func WithName(name string) GoOption {
-	return func(o *goOptions) { o.name = name }
-}
-
 type goOptions struct {
-	name     string
 	deferals []func()
 }
 
-func newGoOptions(c Census, opts []GoOption) *goOptions {
+func newGoOptions(opts []GoOption) *goOptions {
 	o := &goOptions{}
 	for _, opt := range opts {
 		opt(o)
 	}
-	mergeDefaultGoOptions(c, o)
 	return o
-}
-
-func mergeDefaultGoOptions(
-	c Census,
-	o *goOptions,
-) {
-
-	// |||| KEY ||||
-
-	if o.name == "" {
-		o.name = defaultKey(c)
-	}
-}
-
-func defaultKey(c Census) string {
-	return fmt.Sprintf("routine-%d", c.GoCount())
 }
 
 // |||||| OPTIONS ||||||

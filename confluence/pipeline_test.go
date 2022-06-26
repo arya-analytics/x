@@ -42,7 +42,7 @@ var _ = Describe("Pipeline", func() {
 			Stitch:        confluence.StitchWeave,
 		})).To(Succeed())
 		Expect(pipe.RouteOutletFrom("single", "double")).To(Succeed())
-		ctx, cancel := signal.New(context.Background())
+		ctx, cancel := signal.WithCancel(context.Background())
 		pipe.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2
