@@ -1,7 +1,6 @@
 package confluence
 
 import (
-	"context"
 	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
@@ -38,7 +37,7 @@ type Outlet[V Value] interface {
 // |||||| SEGMENT ||||||
 
 type Flow[V Value] interface {
-	Flow(ctx Context)
+	Flow(ctx signal.Context)
 }
 
 // Segment is an interface that accepts values from an Inlet Stream, does some operation on them, and returns the
@@ -48,28 +47,6 @@ type Segment[V Value] interface {
 	Sink[V]
 }
 
-// |||||| CONTEXT ||||||
-
-// Context is provided to all segments at runtime, and is the main method for managing
-// pipeline execution.
-type Context struct {
-	// ErrC is provided to every goroutine spawned by a Segment.
-	// This channel is provided as a method for communicating transient errors
-	// encountered during segment operation. It is provided purely as a utility to the
-	// caller, and is not called by any confluence internal components (i.e. passing
-	// a nil channel will not affect operations).
-	ErrC chan error
-	// signal.Conductor manages all goroutines spawned under Context.
-	// This is the primary means for shutting down a confluence Segment or Pipeline.
-	// Context must not be nil.
-	signal.Context
-}
-
-func DefaultContext() (Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return Context{Context: signal.New(ctx), ErrC: make(chan error)}, cancel
-}
-
 // |||||| SWITCH ||||||
 
 // Switch is a segment that reads values from a set of input streams, resolves their address,
@@ -77,7 +54,7 @@ func DefaultContext() (Context, context.CancelFunc) {
 // Map for when the addresses of input streams are not important.
 type Switch[V Value] struct {
 	// Switch is a function that resolves the address of a Value.
-	Switch func(ctx Context, value V) (address.Address, error)
+	Switch func(ctx signal.Context, value V) (address.Address, error)
 	inFrom []Outlet[V]
 	outTo  map[address.Address]Inlet[V]
 }
@@ -98,7 +75,7 @@ func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (r *Switch[V]) Flow(ctx Context) {
+func (r *Switch[V]) Flow(ctx signal.Context) {
 	goRangeEach(ctx, r.inFrom, func(v V) error {
 		addr, err := r.Switch(ctx, v)
 		if err != nil || addr == "" {
@@ -113,7 +90,7 @@ func (r *Switch[V]) Flow(ctx Context) {
 	})
 }
 
-func goRangeEach[V Value](ctx Context, outlets []Outlet[V], f func(v V) error) {
+func goRangeEach[V Value](ctx signal.Context, outlets []Outlet[V], f func(v V) error) {
 	for _, outlet := range outlets {
 		outlet = outlet
 		signal.GoRange(ctx, outlet.Outlet(), func(v V) error { return f(v) })
@@ -121,7 +98,7 @@ func goRangeEach[V Value](ctx Context, outlets []Outlet[V], f func(v V) error) {
 }
 
 type BatchSwitch[V Value] struct {
-	Switch func(ctx Context, value V) (map[address.Address]V, error)
+	Switch func(ctx signal.Context, value V) (map[address.Address]V, error)
 	sw     Switch[V]
 }
 
@@ -129,7 +106,7 @@ func (b *BatchSwitch[V]) InFrom(outlets ...Outlet[V]) { b.sw.InFrom(outlets...) 
 
 func (b *BatchSwitch[V]) OutTo(inlets ...Inlet[V]) { b.sw.OutTo(inlets...) }
 
-func (b *BatchSwitch[V]) Flow(ctx Context) {
+func (b *BatchSwitch[V]) Flow(ctx signal.Context) {
 	goRangeEach(ctx, b.sw.inFrom, func(v V) error {
 		addrMap, err := b.Switch(ctx, v)
 		if err != nil {
@@ -166,7 +143,7 @@ func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (d *Confluence[V]) Flow(ctx Context) {
+func (d *Confluence[V]) Flow(ctx signal.Context) {
 	goRangeEach(ctx, d.In, func(v V) error {
 		for _, inlet := range d.Out {
 			inlet.Inlet() <- v
@@ -194,7 +171,7 @@ func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (d *Delta[V]) Flow(ctx Context) {
+func (d *Delta[V]) Flow(ctx signal.Context) {
 	goRangeEach(ctx, d.In, func(v V) error {
 	o:
 		for _, inlet := range d.Out {
@@ -213,12 +190,12 @@ func (d *Delta[V]) Flow(ctx Context) {
 // Transform is a segment that reads values from an input streamImpl, executes a transformation on them,
 // and sends them to an out Stream.
 type Transform[V Value] struct {
-	Transform func(ctx Context, value V) (V, bool, error)
+	Transform func(ctx signal.Context, value V) (V, bool, error)
 	Linear[V]
 }
 
 // Flow implements the Segment interface.
-func (f *Transform[V]) Flow(ctx Context) {
+func (f *Transform[V]) Flow(ctx signal.Context) {
 	signal.GoRange(ctx, f.In.Outlet(), func(v V) error {
 		v, ok, err := f.Transform(ctx, v)
 		if !ok || err != nil {
@@ -234,13 +211,13 @@ func (f *Transform[V]) Flow(ctx Context) {
 // Filter is a segment that reads values from an input Stream, filters them through a function, and
 // optionally discards them to an output Stream.
 type Filter[V Value] struct {
-	Filter  func(ctx Context, value V) (bool, error)
+	Filter  func(ctx signal.Context, value V) (bool, error)
 	Rejects Inlet[V]
 	Linear[V]
 }
 
 // Flow implements the Segment interface.
-func (f *Filter[V]) Flow(ctx Context) {
+func (f *Filter[V]) Flow(ctx signal.Context) {
 	signal.GoRange(ctx, f.In.Outlet(), func(v V) error {
 		ok, err := f.Filter(ctx, v)
 		if err != nil {
@@ -283,14 +260,14 @@ func (l *Linear[V]) OutTo(inlets ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (l *Linear[V]) Flow(ctx Context) { panic("[confluence.Linear] - abstract segment") }
+func (l *Linear[V]) Flow(ctx signal.Context) { panic("[confluence.Linear] - abstract segment") }
 
 // |||||| MAP ||||||
 
 // Map is a segment that reads values from an addresses input streamImpl, maps them to an output address, and
 // sends them. Map is a relatively inefficient Segment, use Switch when possible.
 type Map[V Value] struct {
-	Map func(ctx Context, addr address.Address, v Value) (address.Address, error)
+	Map func(ctx signal.Context, addr address.Address, v Value) (address.Address, error)
 	In  map[address.Address]Outlet[V]
 	Out map[address.Address]Inlet[V]
 }
@@ -316,7 +293,7 @@ func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (m *Map[V]) Flow(ctx Context) {
+func (m *Map[V]) Flow(ctx signal.Context) {
 	for inAddr, outlet := range m.In {
 		outlet = outlet
 		signal.GoRange(ctx, outlet.Outlet(), func(v V) error {
@@ -333,13 +310,13 @@ func (m *Map[V]) Flow(ctx Context) {
 // |||||| EMITTER ||||||
 
 type Emitter[V Value] struct {
-	Emit     func(ctx Context) (V, error)
-	Store    func(ctx Context, value V) error
+	Emit     func(ctx signal.Context) (V, error)
+	Store    func(ctx signal.Context, value V) error
 	Interval time.Duration
 	Linear[V]
 }
 
-func (e *Emitter[V]) Flow(ctx Context) {
+func (e *Emitter[V]) Flow(ctx signal.Context) {
 	signal.GoRange(ctx, e.In.Outlet(), func(batch V) error { return e.Store(ctx, batch) })
 	signal.GoTick(ctx, e.Interval, func(t time.Time) error {
 		v, err := e.Emit(ctx)

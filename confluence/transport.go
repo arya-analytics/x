@@ -1,6 +1,7 @@
 package confluence
 
 import (
+	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/transport"
 	"github.com/cockroachdb/errors"
 )
@@ -13,11 +14,11 @@ type Sender[M transport.Message] struct {
 }
 
 // Flow implements Flow.
-func (s *Sender[M]) Flow(ctx Context) {
+func (s *Sender[M]) Flow(ctx signal.Context) {
 	ctx.Go(func() error {
 		defer func() {
 			if err := s.Sender.CloseSend(); err != nil {
-				ctx.ErrC <- err
+				ctx.Transient() <- err
 			}
 		}()
 		for {
@@ -29,7 +30,7 @@ func (s *Sender[M]) Flow(ctx Context) {
 					return nil
 				}
 				if err := s.Sender.Send(req); err != nil {
-					ctx.ErrC <- err
+					ctx.Transient() <- err
 					return nil
 				}
 			}
@@ -45,7 +46,7 @@ type Receiver[M transport.Message] struct {
 }
 
 // Flow implements Flow.
-func (r *Receiver[M]) Flow(ctx Context) {
+func (r *Receiver[M]) Flow(ctx signal.Context) {
 	ctx.Go(func() error {
 		for {
 			select {
@@ -57,7 +58,7 @@ func (r *Receiver[M]) Flow(ctx Context) {
 					return nil
 				}
 				if err != nil {
-					ctx.ErrC <- err
+					ctx.Transient() <- err
 					return nil
 				}
 				r.UnarySource.Out.Inlet() <- res

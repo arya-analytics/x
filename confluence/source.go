@@ -1,5 +1,7 @@
 package confluence
 
+import "github.com/arya-analytics/x/signal"
+
 // Source is a segment that can send values to inlets
 type Source[V Value] interface {
 	OutTo(inlets ...Inlet[V])
@@ -18,7 +20,7 @@ func (s *CoreSource[V]) InFrom(_ ...Outlet[V]) {
 
 func (s *CoreSource[V]) OutTo(inlets ...Inlet[V]) { s.Out = append(s.Out, inlets...) }
 
-func (s *CoreSource[V]) Flow(ctx Context) { panicAbstract() }
+func (s *CoreSource[V]) Flow(ctx signal.Context) {}
 
 type UnarySource[V Value] struct {
 	Out Inlet[V]
@@ -35,4 +37,4 @@ func (u *UnarySource[V]) OutTo(inlets ...Inlet[V]) {
 	u.Out = inlets[0]
 }
 
-func (u *UnarySource[V]) Flow(ctx Context) { panicAbstract() }
+func (u *UnarySource[V]) Flow(ctx signal.Context) {}

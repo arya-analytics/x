@@ -3,6 +3,7 @@ package confluence_test
 import (
 	"context"
 	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,11 +11,11 @@ import (
 
 var _ = Describe("Filter", func() {
 	It("Should filter values correctly", func() {
-		ctx, cancel := confluence.DefaultContext()
+		ctx, cancel := signal.New(context.Background())
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](3)
 		filter := confluence.Filter[int]{
-			Filter: func(ctx confluence.Context, x int) (bool, error) {
+			Filter: func(ctx signal.Context, x int) (bool, error) {
 				return x%3 == 0, nil
 			}}
 		filter.InFrom(inlet)

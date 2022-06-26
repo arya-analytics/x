@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,8 +17,8 @@ var _ = Describe("Pipeline", func() {
 		inlet, outlet := confluence.NewStream[int](3), confluence.NewStream[int](3)
 		pipe.InFrom(inlet)
 		pipe.OutTo(outlet)
-		pipe.Segment("router", &confluence.Switch[int]{Switch: func(ctx confluence.
-			Context, i int) (address.Address, error) {
+		pipe.Segment("router", &confluence.Switch[int]{Switch: func(ctx signal.Context,
+			i int) (address.Address, error) {
 			if i%2 == 0 {
 				return "single", nil
 			} else {
@@ -25,11 +26,11 @@ var _ = Describe("Pipeline", func() {
 			}
 		}})
 		Expect(pipe.RouteInletTo("router")).To(Succeed())
-		t1 := &confluence.Transform[int]{Transform: func(ctx confluence.Context,
+		t1 := &confluence.Transform[int]{Transform: func(ctx signal.Context,
 			i int) (int, bool, error) {
 			return i * i, true, nil
 		}}
-		t2 := &confluence.Transform[int]{Transform: func(ctx confluence.Context,
+		t2 := &confluence.Transform[int]{Transform: func(ctx signal.Context,
 			i int) (int, bool, error) {
 			return i * i * 2, true, nil
 		}}
@@ -41,7 +42,7 @@ var _ = Describe("Pipeline", func() {
 			Stitch:        confluence.StitchWeave,
 		})).To(Succeed())
 		Expect(pipe.RouteOutletFrom("single", "double")).To(Succeed())
-		ctx, cancel := confluence.DefaultContext()
+		ctx, cancel := signal.New(context.Background())
 		pipe.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2

@@ -7,12 +7,12 @@ import (
 // Go implements the Go interface.
 func (c *core) Go(f func() error, opts ...GoOption) {
 	o := newGoOptions(c, opts)
-	c.markOpen(o.key, o)
+	key := c.markOpen(o)
 	go func() {
 		var err error
 		defer runDeferals(o.deferals)
 		defer func() {
-			c.markClosed(o.key, err)
+			c.markClosed(key, err)
 		}()
 		err = f()
 	}()

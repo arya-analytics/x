@@ -2,7 +2,8 @@ package signal
 
 import (
 	"context"
-	"sync"
+	"github.com/cockroachdb/errors"
+	"sync/atomic"
 )
 
 // Context is an extension of the standard context.Context that provides a way to
@@ -11,7 +12,7 @@ type Context interface {
 	context.Context
 	Go
 	WaitGroup
-	Census
+	Errors
 }
 
 // Go is the core interface for forking a new goroutine.
@@ -37,103 +38,77 @@ type WaitGroup interface {
 	WaitOnAll() error
 }
 
-// Census tracks information about the goroutines forked by a Conductor.
-type Census interface {
-	// Count returns the number of goroutines currently running.
-	Count() int
-	// GoCount returns the number of calls made to Go (i.e. the number of both dead
-	// and alive goroutines).
-	GoCount() int
+type Errors interface {
+	Transient() chan error
 }
 
 type core struct {
 	*options
 	context.Context
-	mu       sync.RWMutex
-	close    chan Routine
-	routines map[string]Routine
+	// transient receives errors from goroutines that should not result in the
+	// cancellation of the routine, but do need to be reported to the caller.
+	transient chan error
+	// fatal receives errors from goroutines that indicate a fatal error (i.e. the
+	// routine crashed).
+	fatal chan error
+	// _numForked is the number of goroutines that have been started.
+	// This is mutex protected by atomic.AddInt32 within markOpen.
+	_numForked int32
+	// _numExited is the number of goroutines that have exited.
+	// This is mutex protected by atomic.AddInt32.
+	_numExited int32
 }
 
-func New(ctx context.Context, opts ...Option) Context {
-	c := &core{
-		Context:  ctx,
-		options:  newOptions(opts...),
-		routines: make(map[string]Routine),
+func New(ctx context.Context, opts ...Option) (Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
+	return Wrap(ctx, opts...), cancel
+}
+
+func Wrap(ctx context.Context, opts ...Option) Context {
+	return &core{
+		Context:   ctx,
+		options:   newOptions(opts...),
+		transient: make(chan error),
+		fatal:     make(chan error),
 	}
-	c.close = make(chan Routine, c.options.closeBufferSize)
-	return c
-}
-
-// Count implements the Census interface.
-func (c *core) Count() (count int) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	for _, r := range c.routines {
-		if r.Running {
-			count++
-		}
-	}
-	return count
-}
-
-// GoCount implements the Census interface.
-func (c *core) GoCount() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return len(c.routines)
 }
 
 // WaitOnAny implements the Shutdown interface.
 func (c *core) WaitOnAny(allowNil bool) error { return c.waitForNToExit(1, allowNil) }
 
 // WaitOnAll implements the Shutdown interface.
-func (c *core) WaitOnAll() error {
-	return c.waitForNToExit(c.GoCount(), true)
-}
+func (c *core) WaitOnAll() error { return c.waitForNToExit(c.numRunning(), true) }
 
-func (c *core) waitForNToExit(count int, allowNil bool) error {
+// Transient implements the Errors interface.
+func (c *core) Transient() chan error { return c.transient }
+
+func (c *core) waitForNToExit(count int32, allowNil bool) error {
 	var (
-		numExited int
+		numExited int32
 		err       error
 	)
-	for r := range c.close {
-		if !moreSignificant(err, r.Error) {
-			err = r.Error
+	for _err := range c.fatal {
+		if moreSignificant(_err, err) {
+			err = _err
 			numExited++
-		} else if allowNil {
+		} else if err == nil && allowNil {
 			numExited++
 		}
 		if numExited >= count {
 			break
 		}
 	}
+	c.markClosed(numExited)
 	return err
 }
 
-func (c *core) markOpen(key string, options *goOptions) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.routines[key] = Routine{Key: key, Running: true, options: options}
-}
+func (c *core) markOpen() int32 { return atomic.AddInt32(&c._numForked, 1) }
 
-func (c *core) get(key string) Routine {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.routines[key]
-}
+func (c *core) markClosed(delta int32) int32 { return atomic.AddInt32(&c._numExited, -delta) }
 
-func (c *core) markClosed(key string, err error) {
-	r := c.get(key)
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	r.Running = false
-	r.Error = err
-	c.routines[key] = r
-	c.close <- r
-}
+func (c *core) numRunning() int32 { return c._numForked - c._numExited }
 
 type Routine struct {
-	Key     string
 	Error   error
 	Running bool
 	options *goOptions
@@ -147,16 +122,9 @@ func runDeferals(deferals []func()) {
 
 // moreSignificant returns true if the first error is more relevant to the caller
 // than the second error.
-func moreSignificant(errA, errB error) bool {
-	// We consider error b more significant if error a is nil and error b is not nil
-	if errA == nil {
-		return errB == nil
-	}
-	// We consider error a more significant if it is not nil and error b is nil.
-	if errB == nil {
-		return true
-	}
-	// If both errors are not nil, error b is more significant if error a is a context
-	// error.
-	return errA != context.Canceled && errA != context.DeadlineExceeded
+func moreSignificant(err, reference error) bool {
+	// In the case where both errors are nil, we return false. In the case that both
+	// errors are non nil, err is more significant is reference is a context error.
+	return (err != nil && reference != nil) &&
+		(errors.Is(reference, context.Canceled) || errors.Is(reference, context.DeadlineExceeded))
 }

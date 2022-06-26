@@ -3,6 +3,7 @@ package confluence
 import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/errutil"
+	"github.com/arya-analytics/x/signal"
 )
 
 // Pipeline is a segment that allows the caller to compose a set of sub-segments in a routed manner.
@@ -100,7 +101,7 @@ func (p *Pipeline[V]) Sink(addr address.Address, sink Sink[V]) {
 }
 
 // Flow implements the Segment interface.
-func (p *Pipeline[V]) Flow(ctx Context) {
+func (p *Pipeline[V]) Flow(ctx signal.Context) {
 	p.constructEndpointRoutes()
 	for _, seg := range p.segments {
 		seg.Flow(ctx)

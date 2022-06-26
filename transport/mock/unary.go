@@ -15,8 +15,7 @@ type Unary[I, O transport.Message] struct {
 }
 
 // Send implements the transport.Unary interface.
-func (t *Unary[I, O]) Send(ctx context.Context, target address.Address, req I) (res O,
-	err error) {
+func (t *Unary[I, O]) Send(ctx context.Context, target address.Address, req I) (res O, err error) {
 	route, ok := t.Network.UnaryRoutes[target]
 	if !ok || route.Handler == nil {
 		return res, transport.WrapNotFoundWithTarget(target)

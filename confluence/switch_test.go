@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,7 @@ var _ = Describe("Switch", func() {
 		single := confluence.NewStream[int](3)
 		single.SetInletAddress("single")
 		router := &confluence.Switch[int]{
-			Switch: func(ctx confluence.Context, i int) (address.Address, error) {
+			Switch: func(ctx signal.Context, i int) (address.Address, error) {
 				if i%2 == 0 {
 					return "single", nil
 				} else {
@@ -30,7 +31,7 @@ var _ = Describe("Switch", func() {
 		router.InFrom(stream)
 		router.OutTo(double)
 		router.OutTo(single)
-		ctx, cancel := confluence.DefaultContext()
+		ctx, cancel := signal.New(context.Background())
 		router.Flow(ctx)
 		stream.Inlet() <- 1
 		stream.Inlet() <- 2
@@ -47,14 +48,14 @@ var _ = Describe("Switch", func() {
 		stream2 := confluence.NewStream[int](3)
 		single := confluence.NewStream[int](5)
 		single.SetInletAddress("single")
-		router := &confluence.Switch[int]{Switch: func(ctx confluence.Context,
+		router := &confluence.Switch[int]{Switch: func(ctx signal.Context,
 			i int) (address.Address, error) {
 			return "single", nil
 		}}
 		router.InFrom(stream1)
 		router.InFrom(stream2)
 		router.OutTo(single)
-		ctx, cancel := confluence.DefaultContext()
+		ctx, cancel := signal.New(context.Background())
 		router.Flow(ctx)
 		stream1.Inlet() <- 1
 		stream1.Inlet() <- 2

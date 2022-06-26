@@ -12,8 +12,12 @@ func WithDefer(f func()) GoOption {
 	return func(o *goOptions) { o.deferals = append(o.deferals, f) }
 }
 
+func WithName(name string) GoOption {
+	return func(o *goOptions) { o.name = name }
+}
+
 type goOptions struct {
-	key      string
+	name     string
 	deferals []func()
 }
 
@@ -33,8 +37,8 @@ func mergeDefaultGoOptions(
 
 	// |||| KEY ||||
 
-	if o.key == "" {
-		o.key = defaultKey(c)
+	if o.name == "" {
+		o.name = defaultKey(c)
 	}
 }
 

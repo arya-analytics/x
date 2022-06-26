@@ -1,5 +1,7 @@
 package confluence
 
+import "github.com/arya-analytics/x/signal"
+
 // Sink is a segment that can accept values from outlets, but cannot
 // send values to inlets. Sinks are typically used to write values
 // to network pipes or persistent storage.
@@ -11,7 +13,7 @@ type Sink[V Value] interface {
 // CoreSink is a basic implementation of Sink. It implements the Segment
 // interface, but will panic if any inlets are added.
 type CoreSink[V Value] struct {
-	Sink   func(ctx Context, value V) error
+	Sink   func(ctx signal.Context, value V) error
 	inFrom []Outlet[V]
 }
 
@@ -24,7 +26,7 @@ func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (s *CoreSink[V]) Flow(ctx Context) {
+func (s *CoreSink[V]) Flow(ctx signal.Context) {
 	goRangeEach(ctx, s.inFrom, func(v V) error { return s.Sink(ctx, v) })
 }
 
@@ -43,4 +45,4 @@ func (u *UnarySink[V]) OutTo(_ ...Inlet[V]) {
 	panic("[confluence.Sink] - cannot pipe values out")
 }
 
-func (u *UnarySink[V]) Flow(ctx Context) {}
+func (u *UnarySink[V]) Flow(ctx signal.Context) {}

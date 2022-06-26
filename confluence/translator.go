@@ -16,7 +16,7 @@ type Translator[I, O Value] interface {
 
 // CoreTranslator is a basic template implementation of the Translator interface.
 type CoreTranslator[I, O Value] struct {
-	Translate func(ctx Context, value I) (O, error)
+	Translate func(ctx signal.Context, value I) (O, error)
 	UnarySource[O]
 	UnarySink[I]
 }
@@ -26,7 +26,7 @@ func (t *CoreTranslator[I, O]) OutTo(inlets ...Inlet[O]) { t.UnarySource.OutTo(i
 func (t *CoreTranslator[I, O]) InFrom(outlets ...Outlet[I]) { t.UnarySink.InFrom(outlets...) }
 
 // Flow implements the Flow interface.
-func (t *CoreTranslator[I, O]) Flow(ctx Context) {
+func (t *CoreTranslator[I, O]) Flow(ctx signal.Context) {
 	signal.GoRange(ctx, t.UnarySink.In.Outlet(), func(v I) error {
 		tv, err := t.Translate(ctx, v)
 		if err != nil {
