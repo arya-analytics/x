@@ -15,6 +15,9 @@ func (c *core) Go(f func() error, opts ...GoOption) {
 }
 
 func GoRange[V any](ctx Context, ch <-chan V, f func(V) error, opts ...GoOption) {
+	if ctx.Err() != nil {
+		return
+	}
 	ctx.Go(func() error {
 		for {
 			select {

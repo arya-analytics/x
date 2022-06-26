@@ -30,12 +30,14 @@ func (f *FlushSubscriber[S]) Flush(state S) {
 	if time.Since(f.LastFlush) < f.MinInterval {
 		return
 	}
-	go func() {
-		err := kv.Flush(f.Store, f.Key, state)
-		if err != nil && f.Errors != nil {
-			f.Errors.Transient() <- err
-		} else {
-			f.LastFlush = time.Now()
-		}
-	}()
+	go f.FlushSync(state)
+}
+
+func (f *FlushSubscriber[S]) FlushSync(state S) {
+	err := kv.Flush(f.Store, f.Key, state)
+	if err != nil && f.Errors != nil {
+		f.Errors.Transient() <- err
+	} else {
+		f.LastFlush = time.Now()
+	}
 }

@@ -36,6 +36,7 @@ type WaitGroup interface {
 	// the first non-nil error (returns nil if all errors are nil). Returns nil
 	// if no goroutines are running. This is an equivalent call to errgroup.Group.Wait().
 	WaitOnAll() error
+	Stopped() <-chan struct{}
 }
 
 type Errors interface {
@@ -50,7 +51,8 @@ type core struct {
 	transient chan error
 	// fatal receives errors from goroutines that indicate a fatal error (i.e. the
 	// routine crashed).
-	fatal chan error
+	fatal   chan error
+	stopped chan struct{}
 	// _numForked is the number of goroutines that have been started.
 	// This is mutex protected by atomic.AddInt32 within markOpen.
 	_numForked int32
@@ -70,17 +72,36 @@ func Wrap(ctx context.Context, opts ...Option) Context {
 		options:   newOptions(opts...),
 		transient: make(chan error),
 		fatal:     make(chan error),
+		stopped:   make(chan struct{}),
 	}
+}
+
+func Background(opts ...Option) (Context, context.CancelFunc) {
+	return WithCancel(context.Background(), opts...)
 }
 
 // WaitOnAny implements the Shutdown interface.
 func (c *core) WaitOnAny(allowNil bool) error { return c.waitForNToExit(1, allowNil) }
 
 // WaitOnAll implements the Shutdown interface.
-func (c *core) WaitOnAll() error { return c.waitForNToExit(c.numRunning(), true) }
+func (c *core) WaitOnAll() error {
+	return c.waitForNToExit(c.numRunning(), true)
+}
 
 // Transient implements the Errors interface.
 func (c *core) Transient() chan error { return c.transient }
+
+func (c *core) Stopped() <-chan struct{} { return c.stopped }
+
+func (c *core) maybeCloseStopped() {
+	if c.numRunning() == 0 && c.Err() != nil {
+		select {
+		case <-c.stopped:
+		default:
+			close(c.stopped)
+		}
+	}
+}
 
 func (c *core) waitForNToExit(count int32, allowNil bool) error {
 	var (
@@ -88,10 +109,12 @@ func (c *core) waitForNToExit(count int32, allowNil bool) error {
 		err       error
 	)
 	for _err := range c.fatal {
-		if moreSignificant(_err, err) {
-			err = _err
+		if _err != nil {
 			numExited++
-		} else if err == nil && allowNil {
+			if moreSignificant(_err, err) {
+				err = _err
+			}
+		} else if allowNil {
 			numExited++
 		}
 		if numExited >= count {
@@ -99,6 +122,7 @@ func (c *core) waitForNToExit(count int32, allowNil bool) error {
 		}
 	}
 	c.markClosed(numExited)
+	c.maybeCloseStopped()
 	return err
 }
 
