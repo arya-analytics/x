@@ -52,8 +52,5 @@ func (c *core) waitForNToExit(count int32, allowNil bool) error {
 			break
 		}
 	}
-	if len(c.closerErrors) > 0 && moreSignificant(c.closerErrors[0], err) {
-		return c.closerErrors[0]
-	}
 	return err
 }

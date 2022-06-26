@@ -40,8 +40,6 @@ func (c *core) maybeStop() {
 	default:
 		close(c.stopped)
 	}
-
-	c.runClosers()
 }
 
 func (c *core) runPrelude() (prevent bool) {

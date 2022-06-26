@@ -14,7 +14,6 @@ type Context interface {
 	Go
 	WaitGroup
 	Errors
-	Closer
 }
 
 type Errors interface {
@@ -66,11 +65,6 @@ type core struct {
 	// numExited is the number of goroutines that have exited.
 	// This is mutex protected by atomic.AddInt32.
 	numExited *atomicx.Int32Counter
-	// closers is a list of functions that should be called when all goroutines have
-	// exited and the context is cancelled.
-	closers []func() error
-	// closerErrors is a list of errors that occurred while closing the closers.
-	closerErrors []error
 }
 
 // Transient implements the Errors interface.
