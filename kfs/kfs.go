@@ -112,6 +112,7 @@ func (fs *defaultFS[T]) Acquire(key T) (File[T], error) {
 		return e, nil
 	}
 	f, err := fs.newEntry(key)
+	f.Acquire()
 	fs.mu.Unlock()
 	if err != nil {
 		fs.logger.Error("kfs failed to acquire file", zap.Any("key", key), zap.Error(err))
@@ -219,7 +220,6 @@ func (fs *defaultFS[T]) newEntry(key T) (File[T], error) {
 		return nil, err
 	}
 	e := newEntry(key, f)
-	e.Acquire()
 	fs.entries[key] = e
 	return e, nil
 }
