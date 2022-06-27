@@ -39,7 +39,9 @@ func newOptions(opts ...Option) *options {
 }
 
 func mergeDefaultOptions(o *options) {
-	o.routineCap = 50
+	if o.routineCap == 0 {
+		o.routineCap = 50
+	}
 
 	if o.defaultGoOpts == nil {
 		o.defaultGoOpts = &goOptions{}
