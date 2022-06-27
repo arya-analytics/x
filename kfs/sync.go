@@ -22,21 +22,20 @@ type Sync[T comparable] struct {
 	// MaxAge sets the maximum age of a file before it is synced.
 	MaxAge time.Duration
 	// Conductor is used to fork and close goroutines.
-	Conductor signal.Conductor
 }
 
 // Start starts a goroutine that periodically calls Sync.
 // Shuts down based on the Sync.Shutter.
 // When sync.Shutter.Shutdown is called, the Sync executes a forced sync ON all files and then exits.
-func (s *Sync[T]) Start() <-chan error {
+func (s *Sync[T]) Start(ctx signal.Context) <-chan error {
 	errs := make(chan error)
 	c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(errs)))
 	t := time.NewTicker(s.Interval)
-	s.Conductor.Go(func(sig signal.Context) error {
+	ctx.Go(func() error {
 		for {
 			select {
-			case <-sig.Done():
-				return errors.CombineErrors(s.forceSync(), sig.Err())
+			case <-ctx.Done():
+				return errors.CombineErrors(s.forceSync(), ctx.Err())
 			case <-t.C:
 				c.Exec(s.sync)
 			}

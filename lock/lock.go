@@ -1,41 +1,32 @@
 package lock
 
-type Lock struct {
-	signal chan struct{}
+import "sync"
+
+type Lock interface {
+	Acquire()
+	TryAcquire() bool
+	Release()
 }
 
-func New() Lock {
-	l := Lock{signal: make(chan struct{}, 1)}
-	// lock is initially released.
-	l.signal <- struct{}{}
-	return l
+type idempotent struct {
+	mu *sync.Mutex
 }
 
-// Acquire blocks until a Lock is acquired.
-func (l Lock) Acquire() {
-	// Wait for the Lock to be released.
-	<-l.signal
-	// Reset the Lock.
-	l.signal = make(chan struct{}, 1)
-}
+func Idempotent() Lock { return idempotent{mu: &sync.Mutex{}} }
 
-// TryAcquire attempts to acquire the Lock.
-// Returns true if the Lock was acquired. If true is returned, the Lock MUST be released after work is done.
-func (l Lock) TryAcquire() (acquired bool) {
-	select {
-	case <-l.signal:
-		l.signal = make(chan struct{}, 1)
-		acquired = true
-	default:
-	}
-	return acquired
-}
+// Acquire blocks until a idempotent is acquired.
+func (l idempotent) Acquire() { l.mu.Lock() }
 
-// Release the Lock.
-func (l Lock) Release() {
-	// If the Lock is already released, we don't need to do anything.
-	select {
-	case l.signal <- struct{}{}:
-	default:
+// TryAcquire attempts to acquire the idempotent.
+// Returns true if the idempotent was acquired. If true is returned, the
+//idempotent MUST be released after work is done.
+func (l idempotent) TryAcquire() (acquired bool) { return l.mu.TryLock() }
+
+// Release the idempotent.
+func (l idempotent) Release() {
+	if l.TryAcquire() {
+		l.mu.Unlock()
+	} else {
+		l.mu.Unlock()
 	}
 }
