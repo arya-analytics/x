@@ -23,8 +23,8 @@ type Debounce[V confluence.Value] struct {
 const emptyCycleShutdownCount = 5
 
 // Flow starts the queue.
-func (d *Debounce[V]) Flow(ctx confluence.Context) {
-	ctx.Go(func(sig signal.Context) error {
+func (d *Debounce[V]) Flow(ctx signal.Context) {
+	ctx.Go(func() error {
 		var (
 			t        = time.NewTicker(d.Config.Interval)
 			sd       = false
@@ -33,7 +33,7 @@ func (d *Debounce[V]) Flow(ctx confluence.Context) {
 		defer t.Stop()
 		for {
 			select {
-			case <-sig.Done():
+			case <-ctx.Done():
 				sd = true
 			default:
 			}
@@ -42,7 +42,7 @@ func (d *Debounce[V]) Flow(ctx confluence.Context) {
 				if sd {
 					numEmpty++
 					if numEmpty > emptyCycleShutdownCount {
-						return sig.Err()
+						return ctx.Err()
 					}
 				}
 				continue
