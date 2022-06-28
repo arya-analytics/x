@@ -21,6 +21,8 @@ type Pipeline[V Value] struct {
 func NewPipeline[V Value]() *Pipeline[V] {
 	return &Pipeline[V]{
 		segments: make(map[address.Address]Segment[V]),
+		sinks:    make(map[address.Address]Sink[V]),
+		sources:  make(map[address.Address]Source[V]),
 		routes:   make(map[address.Address]map[address.Address]Stream[V]),
 	}
 }
@@ -35,11 +37,11 @@ func (p *Pipeline[V]) NewRouteBuilder() *RouteBuilder[V] {
 func (p *Pipeline[V]) route(fromTarget, toTarget address.Address, stream Stream[V]) error {
 	from, ok := p.getSource(fromTarget)
 	if !ok {
-		return ErrNotFound
+		return notFound(fromTarget)
 	}
 	to, ok := p.getSink(toTarget)
 	if !ok {
-		return ErrNotFound
+		return notFound(toTarget)
 	}
 
 	stream.SetInletAddress(toTarget)
@@ -55,8 +57,8 @@ func (p *Pipeline[V]) route(fromTarget, toTarget address.Address, stream Stream[
 // RouteInletTo routes from the inlet of the Pipeline to the given Segment.
 func (p *Pipeline[V]) RouteInletTo(to ...address.Address) error {
 	for _, addr := range p.routeInletTo {
-		if _, ok := p.getSegment(addr); !ok {
-			return ErrNotFound
+		if _, ok := p.getSink(addr); !ok {
+			return notFound(addr)
 		}
 	}
 	p.routeInletTo = append(p.routeInletTo, to...)
@@ -66,8 +68,8 @@ func (p *Pipeline[V]) RouteInletTo(to ...address.Address) error {
 // RouteOutletFrom routes from the given Segment to the outlet of the Pipeline.
 func (p *Pipeline[V]) RouteOutletFrom(from ...address.Address) error {
 	for _, addr := range from {
-		if _, ok := p.getSegment(addr); !ok {
-			return ErrNotFound
+		if _, ok := p.getSource(addr); !ok {
+			return notFound(addr)
 		}
 	}
 	p.routeOutletFrom = append(p.routeOutletFrom, from...)
@@ -76,8 +78,8 @@ func (p *Pipeline[V]) RouteOutletFrom(from ...address.Address) error {
 
 func (p *Pipeline[V]) constructEndpointRoutes() {
 	for _, addr := range p.routeOutletFrom {
-		seg, _ := p.getSource(addr)
-		seg.OutTo(p.Out)
+		source, _ := p.getSource(addr)
+		source.OutTo(p.Out)
 	}
 	for _, addr := range p.routeInletTo {
 		seg, _ := p.getSink(addr)

@@ -203,6 +203,8 @@ func (fs *defaultFS[T]) Metrics() Metrics {
 
 // OpenFiles implements FS. Note: does not return a copy. Do not modify the returned map.
 func (fs *defaultFS[T]) OpenFiles() map[T]File[T] {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.entries
 }
 

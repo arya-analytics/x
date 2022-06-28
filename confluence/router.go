@@ -24,7 +24,9 @@ const (
 )
 
 // ErrNotFound is returned when a Router cannot find an address.
-var ErrNotFound = errors.New("not found")
+var ErrNotFound = errors.New("[confluence] - segment not found")
+
+func notFound(addr address.Address) error { return errors.Wrapf(ErrNotFound, "address %s", addr) }
 
 type Router[V Value] interface {
 	From() []address.Address

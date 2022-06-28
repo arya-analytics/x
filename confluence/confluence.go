@@ -22,6 +22,8 @@ type Inlet[V Value] interface {
 	InletAddress() address.Address
 	// SetInletAddress sets the address of the inlet.
 	SetInletAddress(address.Address)
+	// Close closes the inlet.
+	Close()
 }
 
 // Outlet is a Stream that emits values and can be addressed.
@@ -323,7 +325,11 @@ func (e *Emitter[V]) Flow(ctx signal.Context) {
 		if err != nil {
 			return err
 		}
-		e.Out.Inlet() <- v
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case e.Out.Inlet() <- v:
+		}
 		return nil
 	})
 }

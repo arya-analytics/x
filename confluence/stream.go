@@ -14,26 +14,28 @@ type Stream[V Value] interface {
 type streamImpl[V Value] struct {
 	inletAddr  address.Address
 	outletAddr address.Address
-	Values     chan V
+	values     chan V
 }
 
 // Inlet implements Stream.
-func (c *streamImpl[V]) Inlet() chan<- V { return c.Values }
+func (s *streamImpl[V]) Inlet() chan<- V { return s.values }
 
 // Outlet represents Stream.
-func (c *streamImpl[V]) Outlet() <-chan V { return c.Values }
+func (s *streamImpl[V]) Outlet() <-chan V { return s.values }
 
 // InletAddress implements Stream.
-func (c *streamImpl[V]) InletAddress() address.Address { return c.inletAddr }
+func (s *streamImpl[V]) InletAddress() address.Address { return s.inletAddr }
+
+func (s *streamImpl[V]) Close() { close(s.values) }
 
 // SetInletAddress implements Stream.
-func (c *streamImpl[V]) SetInletAddress(addr address.Address) { c.inletAddr = addr }
+func (s *streamImpl[V]) SetInletAddress(addr address.Address) { s.inletAddr = addr }
 
 // OutletAddress implements Stream.
-func (c *streamImpl[V]) OutletAddress() address.Address { return c.outletAddr }
+func (s *streamImpl[V]) OutletAddress() address.Address { return s.outletAddr }
 
 // SetOutletAddress implements Stream.
-func (c *streamImpl[V]) SetOutletAddress(addr address.Address) { c.outletAddr = addr }
+func (s *streamImpl[V]) SetOutletAddress(addr address.Address) { s.outletAddr = addr }
 
 // NewStream opens a new Stream with the given buffer capacity.
-func NewStream[V Value](buffer int) Stream[V] { return &streamImpl[V]{Values: make(chan V, buffer)} }
+func NewStream[V Value](buffer int) Stream[V] { return &streamImpl[V]{values: make(chan V, buffer)} }

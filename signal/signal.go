@@ -14,6 +14,7 @@ type Context interface {
 	Go
 	WaitGroup
 	Errors
+	Census
 }
 
 type Errors interface {
