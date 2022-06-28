@@ -22,10 +22,16 @@ func newGoOptions(opts []GoOption) *goOptions {
 
 type Option func(o *options)
 
-func WithRoutineCap(cap int) Option { return func(o *options) { o.routineCap = uint(cap) } }
+func WithBufferCap(transient, fatal uint) Option {
+	return func(o *options) {
+		o.transientCap = &transient
+		o.fatalCap = &fatal
+	}
+}
 
 type options struct {
-	routineCap    uint
+	transientCap  *uint
+	fatalCap      *uint
 	defaultGoOpts *goOptions
 }
 
@@ -38,9 +44,19 @@ func newOptions(opts ...Option) *options {
 	return o
 }
 
+const (
+	defaultTransientCap = 0
+	defaultFatalCap     = 0
+)
+
 func mergeDefaultOptions(o *options) {
-	if o.routineCap == 0 {
-		o.routineCap = 50
+	if o.transientCap == nil {
+		o.transientCap = new(uint)
+		*o.transientCap = defaultTransientCap
+	}
+	if o.fatalCap == nil {
+		o.fatalCap = new(uint)
+		*o.fatalCap = defaultFatalCap
 	}
 
 	if o.defaultGoOpts == nil {

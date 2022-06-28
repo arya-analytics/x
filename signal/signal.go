@@ -37,11 +37,12 @@ func Background(opts ...Option) (Context, context.CancelFunc) {
 }
 
 func newCore(ctx context.Context, opts ...Option) *core {
+	o := newOptions(opts...)
 	return &core{
 		Context:   ctx,
-		options:   newOptions(opts...),
-		transient: make(chan error),
-		fatal:     make(chan error),
+		options:   o,
+		transient: make(chan error, *o.transientCap),
+		fatal:     make(chan error, *o.fatalCap),
 		stopped:   make(chan struct{}),
 		numForked: &atomicx.Int32Counter{},
 		numExited: &atomicx.Int32Counter{},
