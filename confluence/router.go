@@ -9,9 +9,9 @@ import (
 type Stitch byte
 
 const (
-	// StitchLinear is the default stitching method. It means the router will create a single stream and connected
+	// StichUnary is the default stitching method. It means the router will create a single stream and connected
 	// it to all input (from) segments and output (to) segments.
-	StitchLinear Stitch = iota
+	StichUnary Stitch = iota
 	// StitchWeave is a stitching method that means the router will create a stream for each unique combination of
 	// input (from) and output (to) segments.
 	StitchWeave
@@ -58,7 +58,7 @@ type MultiRouter[V Value] struct {
 
 func (m MultiRouter[V]) Route(p *Pipeline[V]) error {
 	switch m.Stitch {
-	case StitchLinear:
+	case StichUnary:
 		return m.linear(p)
 	case StitchWeave:
 		return m.weave(p)

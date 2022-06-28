@@ -114,7 +114,7 @@ var _ = Describe("Catch", func() {
 			})
 		})
 	})
-	Describe("Next Hook", func() {
+	Describe("next Hook", func() {
 		It("Should pipe errors", func() {
 			pipe := make(chan error, 10)
 			c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(pipe)))
