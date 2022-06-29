@@ -48,3 +48,18 @@ func (g GatedSink[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 		g.Sink.Flow(ctx, append(opts, Defer(g.Gate.Close))...)
 	}
 }
+
+type GatedTranslator[I, O Value] struct {
+	Translator[I, O]
+	Gate *lock.Gate
+}
+
+func GateTranslator[I, O Value](translator Translator[I, O]) GatedTranslator[I, O] {
+	return GatedTranslator[I, O]{Translator: translator, Gate: &lock.Gate{}}
+}
+
+func (g GatedTranslator[I, O]) Flow(ctx signal.Context, opts ...FlowOption) {
+	if g.Gate.Open() {
+		g.Translator.Flow(ctx, append(opts, Defer(g.Gate.Close))...)
+	}
+}
