@@ -110,7 +110,7 @@ func (p *Pipeline[V]) Sink(addr address.Address, sink Sink[V]) {
 }
 
 // Flow implements the Segment interface.
-func (p *Pipeline[V]) Flow(ctx signal.Context) {
+func (p *Pipeline[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 	p.constructEndpointRoutes()
 	for _, seg := range p.segments {
 		seg.Flow(ctx)

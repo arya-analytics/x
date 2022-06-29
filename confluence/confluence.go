@@ -54,13 +54,13 @@ func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) { d.Out = append(d.Out, inlets
 
 // Flow implements the Segment interface.
 func (d *Confluence[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	goRangeEach(ctx, d.In, func(v V) error {
 		for _, inlet := range d.Out {
 			inlet.Inlet() <- v
 		}
 		return nil
-	}, fo.signal...)
+	}, fo.Signal...)
 }
 
 // Delta is similar to Confluence. It reads values from a set of input streams and pipes them to a set of output streams.
@@ -103,7 +103,7 @@ type Transform[V Value] struct {
 
 // Flow implements the Segment interface.
 func (f *Transform[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	signal.GoRange(ctx, f.In.Outlet(), func(v V) error {
 		v, ok, err := f.Transform(ctx, v)
 		if !ok || err != nil {
@@ -111,7 +111,7 @@ func (f *Transform[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 		}
 		f.Linear.Out.Inlet() <- v
 		return nil
-	}, fo.signal...)
+	}, fo.Signal...)
 }
 
 // |||||| FILTER ||||||
@@ -125,7 +125,8 @@ type Filter[V Value] struct {
 }
 
 // Flow implements the Segment interface.
-func (f *Filter[V]) Flow(ctx signal.Context) {
+func (f *Filter[V]) Flow(ctx signal.Context, opts ...FlowOption) {
+	fo := NewFlowOptions(opts)
 	signal.GoRange(ctx, f.In.Outlet(), func(v V) error {
 		ok, err := f.Filter(ctx, v)
 		if err != nil {
@@ -137,7 +138,7 @@ func (f *Filter[V]) Flow(ctx signal.Context) {
 			f.Rejects.Inlet() <- v
 		}
 		return nil
-	})
+	}, fo.Signal...)
 }
 
 // |||||| EMITTER ||||||
@@ -150,25 +151,19 @@ type Emitter[V Value] struct {
 }
 
 func (e *Emitter[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
-	ctx.Go(func() error {
-		t := time.NewTicker(e.Interval)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-t.C:
-				if err := e.emit(ctx); err != nil {
-					return err
-				}
-			case v := <-e.In.Outlet():
-				if err := e.Store(ctx, v); err != nil {
-					return err
-				}
-			}
+	signal.GoRange(ctx, e.In.Outlet(), func(batch V) error { return e.Store(ctx, batch) })
+	signal.GoTick(ctx, e.Interval, func(t time.Time) error {
+		v, err := e.Emit(ctx)
+		if err != nil {
+			return err
 		}
-	}, fo.signal...)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case e.Out.Inlet() <- v:
+		}
+		return nil
+	})
 }
 
 func (e *Emitter[V]) emit(ctx signal.Context) error {

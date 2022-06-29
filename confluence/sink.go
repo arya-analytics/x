@@ -27,8 +27,8 @@ func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) {
 
 // Flow implements the Segment interface.
 func (s *CoreSink[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
-	goRangeEach(ctx, s.In, func(v V) error { return s.Sink(ctx, v) }, fo.signal...)
+	fo := NewFlowOptions(opts)
+	goRangeEach(ctx, s.In, func(v V) error { return s.Sink(ctx, v) }, fo.Signal...)
 }
 
 type UnarySink[V Value] struct {
@@ -48,6 +48,6 @@ func (u *UnarySink[V]) OutTo(_ ...Inlet[V]) {
 }
 
 func (u *UnarySink[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
-	signal.GoRange(ctx, u.In.Outlet(), func(v V) error { return u.Sink(ctx, v) }, fo.signal...)
+	fo := NewFlowOptions(opts)
+	signal.GoRange(ctx, u.In.Outlet(), func(v V) error { return u.Sink(ctx, v) }, fo.Signal...)
 }

@@ -4,7 +4,6 @@ import (
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/transport"
 	"github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 )
 
 // Sender wraps transport.StreamSender to provide a confluence compatible
@@ -17,10 +16,9 @@ type Sender[M transport.Message] struct {
 
 // Flow implements Flow.
 func (s *Sender[M]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	ctx.Go(func() error {
 		defer func() {
-			logrus.Warnf("Closing Sender %s", s.Name)
 			if err := s.Sender.CloseSend(); err != nil {
 				ctx.Transient() <- err
 			}
@@ -39,7 +37,7 @@ func (s *Sender[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 				}
 			}
 		}
-	}, fo.signal...)
+	}, fo.Signal...)
 }
 
 // Receiver wraps transport.StreamReceiver to provide a confluence compatible
@@ -53,11 +51,8 @@ type Receiver[M transport.Message] struct {
 
 // Flow implements Flow.
 func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	ctx.Go(func() error {
-		defer func() {
-			logrus.Infof("Closing Receiver %s", r.Name)
-		}()
 		for {
 			select {
 			default:
@@ -72,5 +67,5 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 				r.UnarySource.Out.Inlet() <- res
 			}
 		}
-	}, fo.signal...)
+	}, fo.Signal...)
 }

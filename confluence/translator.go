@@ -27,7 +27,7 @@ func (t *CoreTranslator[I, O]) InFrom(outlets ...Outlet[I]) { t.UnarySink.InFrom
 
 // Flow implements the Flow interface.
 func (t *CoreTranslator[I, O]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	signal.GoRange(ctx, t.UnarySink.In.Outlet(), func(v I) error {
 		tv, ok, err := t.Translate(ctx, v)
 		if err != nil {
@@ -37,5 +37,5 @@ func (t *CoreTranslator[I, O]) Flow(ctx signal.Context, opts ...FlowOption) {
 			t.UnarySource.Out.Inlet() <- tv
 		}
 		return nil
-	}, fo.signal...)
+	}, fo.Signal...)
 }

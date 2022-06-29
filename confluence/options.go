@@ -2,20 +2,20 @@ package confluence
 
 import "github.com/arya-analytics/x/signal"
 
-type flowOptions struct {
-	signal []signal.GoOption
+type FlowOptions struct {
+	Signal []signal.GoOption
 }
 
-func newFlowOptions(opts []FlowOption) flowOptions {
-	fo := flowOptions{}
+func NewFlowOptions(opts []FlowOption) *FlowOptions {
+	fo := &FlowOptions{}
 	for _, opt := range opts {
-		opt(&fo)
+		opt(fo)
 	}
 	return fo
 }
 
-type FlowOption func(fo *flowOptions)
+type FlowOption func(fo *FlowOptions)
 
 func Defer(f func()) FlowOption {
-	return func(fo *flowOptions) { fo.signal = append(fo.signal, signal.Defer(f)) }
+	return func(fo *FlowOptions) { fo.Signal = append(fo.Signal, signal.Defer(f)) }
 }

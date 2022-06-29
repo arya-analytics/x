@@ -35,7 +35,7 @@ func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
 
 // Flow implements the Segment interface.
 func (r *Switch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	goRangeEach(ctx, r.inFrom, func(v V) error {
 		addr, err := r.Switch(ctx, v)
 		if err != nil || addr == "" {
@@ -47,7 +47,7 @@ func (r *Switch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 		}
 		inlet.Inlet() <- v
 		return nil
-	}, fo.signal...)
+	}, fo.Signal...)
 }
 
 // |||||| BATCH ||||||
@@ -62,7 +62,7 @@ func (b *BatchSwitch[V]) InFrom(outlets ...Outlet[V]) { b.Core.InFrom(outlets...
 func (b *BatchSwitch[V]) OutTo(inlets ...Inlet[V]) { b.Core.OutTo(inlets...) }
 
 func (b *BatchSwitch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	goRangeEach(ctx, b.Core.inFrom, func(v V) error {
 		addrMap, err := b.Switch(ctx, v)
 		if err != nil {
@@ -76,7 +76,7 @@ func (b *BatchSwitch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 			inlet.Inlet() <- batch
 		}
 		return nil
-	}, fo.signal...)
+	}, fo.Signal...)
 }
 
 // |||||| MAP |||||||
@@ -111,7 +111,7 @@ func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
 
 // Flow implements the Segment interface.
 func (m *Map[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := newFlowOptions(opts)
+	fo := NewFlowOptions(opts)
 	for inAddr, outlet := range m.In {
 		outlet = outlet
 		signal.GoRange(ctx, outlet.Outlet(), func(v V) error {
@@ -121,6 +121,6 @@ func (m *Map[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 			}
 			m.Out[addr].Inlet() <- v
 			return nil
-		}, fo.signal...)
+		}, fo.Signal...)
 	}
 }
