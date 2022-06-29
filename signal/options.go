@@ -4,7 +4,7 @@ package signal
 
 type GoOption func(o *goOptions)
 
-func WithDefer(f func()) GoOption { return func(o *goOptions) { o.deferals = append(o.deferals, f) } }
+func Defer(f func()) GoOption { return func(o *goOptions) { o.deferals = append(o.deferals, f) } }
 
 type goOptions struct {
 	deferals []func()

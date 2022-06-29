@@ -31,7 +31,7 @@ type Writer[S State] interface {
 }
 
 // Store is a simple copy-on-read in memory store.
-// ToAddr create a new Store, called store.New().
+// SinkTarget create a new Store, called store.New().
 type Store[S State] interface {
 	Reader[S]
 	Writer[S]
@@ -77,7 +77,7 @@ func (c *core[S]) ReadState() S {
 // |||||| OBSERVABLE ||||||
 
 // Observable is a wrapper around a Store that allows the caller to observe
-// State changes. ToAddr create a new store.Observable, called store.ObservableWrap().
+// State changes. SinkTarget create a new store.Observable, called store.ObservableWrap().
 type Observable[S State] interface {
 	Store[S]
 	observe.Observable[S]

@@ -17,6 +17,13 @@ type Pipeline[V Value] struct {
 	Linear[V]
 }
 
+type pipelineEntity[V Value] struct {
+	segment  Segment[V]
+	source   Source[V]
+	sink     Sink[V]
+	flowOpts []FlowOption
+}
+
 // NewPipeline opens a new empty Pipeline.
 func NewPipeline[V Value]() *Pipeline[V] {
 	return &Pipeline[V]{
@@ -34,45 +41,45 @@ func (p *Pipeline[V]) NewRouteBuilder() *RouteBuilder[V] {
 	return &RouteBuilder[V]{CatchSimple: *errutil.NewCatchSimple(), Pipeline: p}
 }
 
-func (p *Pipeline[V]) route(fromTarget, toTarget address.Address, stream Stream[V]) error {
-	from, ok := p.getSource(fromTarget)
+func (p *Pipeline[V]) route(sourceTarget, sinkTarget address.Address, stream Stream[V]) error {
+	source, ok := p.getSource(sourceTarget)
 	if !ok {
-		return notFound(fromTarget)
+		return notFound(sourceTarget)
 	}
-	to, ok := p.getSink(toTarget)
+	sink, ok := p.getSink(sinkTarget)
 	if !ok {
-		return notFound(toTarget)
+		return notFound(sinkTarget)
 	}
 
-	stream.SetInletAddress(toTarget)
-	from.OutTo(stream)
+	stream.SetInletAddress(sinkTarget)
+	source.OutTo(stream)
 
-	stream.SetOutletAddress(fromTarget)
-	to.InFrom(stream)
+	stream.SetOutletAddress(sourceTarget)
+	sink.InFrom(stream)
 
-	p.setStream(fromTarget, toTarget, stream)
+	p.setStream(sourceTarget, sinkTarget, stream)
 	return nil
 }
 
 // RouteInletTo routes from the inlet of the Pipeline to the given Segment.
-func (p *Pipeline[V]) RouteInletTo(to ...address.Address) error {
+func (p *Pipeline[V]) RouteInletTo(targets ...address.Address) error {
 	for _, addr := range p.routeInletTo {
 		if _, ok := p.getSink(addr); !ok {
 			return notFound(addr)
 		}
 	}
-	p.routeInletTo = append(p.routeInletTo, to...)
+	p.routeInletTo = append(p.routeInletTo, targets...)
 	return nil
 }
 
 // RouteOutletFrom routes from the given Segment to the outlet of the Pipeline.
-func (p *Pipeline[V]) RouteOutletFrom(from ...address.Address) error {
-	for _, addr := range from {
+func (p *Pipeline[V]) RouteOutletFrom(targets ...address.Address) error {
+	for _, addr := range targets {
 		if _, ok := p.getSource(addr); !ok {
 			return notFound(addr)
 		}
 	}
-	p.routeOutletFrom = append(p.routeOutletFrom, from...)
+	p.routeOutletFrom = append(p.routeOutletFrom, targets...)
 	return nil
 }
 
@@ -116,21 +123,21 @@ func (p *Pipeline[V]) Flow(ctx signal.Context) {
 	}
 }
 
-func (p *Pipeline[V]) getStream(from address.Address, to address.Address) (Stream[V], bool) {
-	opts := p.routes[from]
+func (p *Pipeline[V]) getStream(sourceTarget, sinkTarget address.Address) (Stream[V], bool) {
+	opts := p.routes[sourceTarget]
 	if opts == nil {
-		p.routes[from] = make(map[address.Address]Stream[V])
+		p.routes[sourceTarget] = make(map[address.Address]Stream[V])
 		return nil, false
 	}
-	stream, ok := opts[to]
+	stream, ok := opts[sinkTarget]
 	return stream, ok
 }
 
-func (p *Pipeline[V]) setStream(from address.Address, to address.Address, stream Stream[V]) {
-	if p.routes[from] == nil {
-		p.routes[from] = make(map[address.Address]Stream[V])
+func (p *Pipeline[V]) setStream(sourceTarget, sinkTarget address.Address, stream Stream[V]) {
+	if p.routes[sourceTarget] == nil {
+		p.routes[sourceTarget] = make(map[address.Address]Stream[V])
 	}
-	p.routes[from][to] = stream
+	p.routes[sourceTarget][sinkTarget] = stream
 }
 
 func (p *Pipeline[V]) getSegment(addr address.Address) (Segment[V], bool) {
@@ -142,12 +149,12 @@ func (p *Pipeline[V]) setSegment(addr address.Address, seg Segment[V]) {
 	p.segments[addr] = seg
 }
 
-func (p *Pipeline[V]) getSource(target address.Address) (Source[V], bool) {
-	source, ok := p.sources[target]
+func (p *Pipeline[V]) getSource(addr address.Address) (Source[V], bool) {
+	source, ok := p.sources[addr]
 	if ok {
 		return source, ok
 	}
-	source, ok = p.getSegment(target)
+	source, ok = p.getSegment(addr)
 	return source, ok
 }
 

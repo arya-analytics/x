@@ -20,7 +20,7 @@ func (s *CoreSource[V]) InFrom(_ ...Outlet[V]) {
 
 func (s *CoreSource[V]) OutTo(inlets ...Inlet[V]) { s.Out = append(s.Out, inlets...) }
 
-func (s *CoreSource[V]) Flow(ctx signal.Context) {}
+func (s *CoreSource[V]) Flow(ctx signal.Context, opts ...FlowOption) {}
 
 type UnarySource[V Value] struct {
 	Out Inlet[V]
@@ -37,4 +37,4 @@ func (u *UnarySource[V]) OutTo(inlets ...Inlet[V]) {
 	u.Out = inlets[0]
 }
 
-func (u *UnarySource[V]) Flow(ctx signal.Context) {}
+func (u *UnarySource[V]) Flow(ctx signal.Context, opts ...FlowOption) {}

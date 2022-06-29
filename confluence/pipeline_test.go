@@ -37,8 +37,8 @@ var _ = Describe("Pipeline", func() {
 		pipe.Segment("single", t1)
 		pipe.Segment("double", t2)
 		Expect(pipe.Route(confluence.MultiRouter[int]{
-			FromAddresses: []address.Address{"router"},
-			ToAddresses:   []address.Address{"single", "double"},
+			SourceTargets: []address.Address{"router"},
+			SinkTargets:   []address.Address{"single", "double"},
 			Stitch:        confluence.StitchWeave,
 		})).To(Succeed())
 		Expect(pipe.RouteOutletFrom("single", "double")).To(Succeed())

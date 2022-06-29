@@ -14,11 +14,14 @@ import (
 
 var _ = Describe("Switch", func() {
 	It("Should route values to the correct inlets", func() {
-		stream := confluence.NewStream[int](3)
+		input := confluence.NewStream[int](3)
+
 		double := confluence.NewStream[int](3)
 		double.SetInletAddress("double")
+
 		single := confluence.NewStream[int](3)
 		single.SetInletAddress("single")
+
 		router := &confluence.Switch[int]{
 			Switch: func(ctx signal.Context, i int) (address.Address, error) {
 				if i%2 == 0 {
@@ -28,14 +31,14 @@ var _ = Describe("Switch", func() {
 				}
 			},
 		}
-		router.InFrom(stream)
+		router.InFrom(input)
 		router.OutTo(double)
 		router.OutTo(single)
 		ctx, cancel := signal.WithCancel(context.Background())
 		router.Flow(ctx)
-		stream.Inlet() <- 1
-		stream.Inlet() <- 2
-		stream.Inlet() <- 3
+		input.Inlet() <- 1
+		input.Inlet() <- 2
+		input.Inlet() <- 3
 		time.Sleep(2 * time.Millisecond)
 		cancel()
 		Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())

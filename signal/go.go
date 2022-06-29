@@ -23,7 +23,8 @@ func (c *core) Go(f func() error, opts ...GoOption) {
 	o := newGoOptions(opts)
 	go func() {
 		defer c.runPostlude(o)
-		c.fatal <- f()
+		err := f()
+		c.fatal <- err
 	}()
 }
 
@@ -50,7 +51,7 @@ func GoRange[V any](ctx Context, ch <-chan V, f func(V) error, opts ...GoOption)
 
 func GoTick(ctx Context, interval time.Duration, f func(t time.Time) error, opts ...GoOption) {
 	t := time.NewTicker(interval)
-	GoRange(ctx, t.C, f, append(opts, WithDefer(func() { t.Stop() }))...)
+	GoRange(ctx, t.C, f, append(opts, Defer(func() { t.Stop() }))...)
 }
 
 func (c *core) maybeStop() {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/transport"
+	"github.com/sirupsen/logrus"
 )
 
 // Stream is a mock implementation of the transport.Stream interface.
@@ -25,7 +26,7 @@ func (s *Stream[I, O]) Stream(
 		return nil, transport.WrapNotFoundWithTarget(target)
 	}
 	req, res := make(chan I, s.BufferSize), make(chan O, route.BufferSize)
-	reqErrC, resErrC := make(chan error), make(chan error)
+	reqErrC, resErrC := make(chan error, 1), make(chan error, 1)
 	server := &StreamServer[I, O]{
 		requests:   req,
 		responses:  res,
@@ -35,10 +36,6 @@ func (s *Stream[I, O]) Stream(
 	go func() {
 		if err := route.Handler(ctx, server); err != nil {
 			server.serverErrC <- err
-		}
-		// Panicking here because we don't want to add a dependency on a logging
-		// package. This error also shouldn't occur during mock operation.
-		if err := server.CloseSend(); err != nil {
 		}
 	}()
 	return &StreamClient[I, O]{
@@ -83,6 +80,7 @@ func (s *StreamClient[I, O]) Receive() (resp O, err error) {
 
 // CloseSend implements the transport.StreamClient interface.
 func (s *StreamClient[I, O]) CloseSend() error {
+	logrus.Warn("Closing Send", s.requests)
 	s.clientErrC <- transport.EOF
 	close(s.requests)
 	return nil

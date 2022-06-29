@@ -13,12 +13,12 @@ type Sink[V Value] interface {
 // CoreSink is a basic implementation of Sink. It implements the Segment
 // interface, but will panic if any inlets are added.
 type CoreSink[V Value] struct {
-	Sink   func(ctx signal.Context, value V) error
-	inFrom []Outlet[V]
+	Sink func(ctx signal.Context, value V) error
+	In   []Outlet[V]
 }
 
 // InFrom implements the Segment interface.
-func (s *CoreSink[V]) InFrom(outlet ...Outlet[V]) { s.inFrom = append(s.inFrom, outlet...) }
+func (s *CoreSink[V]) InFrom(outlet ...Outlet[V]) { s.In = append(s.In, outlet...) }
 
 // OutTo implements the Segment interface. This method will panic if called.
 func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) {
@@ -26,12 +26,14 @@ func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) {
 }
 
 // Flow implements the Segment interface.
-func (s *CoreSink[V]) Flow(ctx signal.Context) {
-	goRangeEach(ctx, s.inFrom, func(v V) error { return s.Sink(ctx, v) })
+func (s *CoreSink[V]) Flow(ctx signal.Context, opts ...FlowOption) {
+	fo := newFlowOptions(opts)
+	goRangeEach(ctx, s.In, func(v V) error { return s.Sink(ctx, v) }, fo.signal...)
 }
 
 type UnarySink[V Value] struct {
-	In Outlet[V]
+	Sink func(ctx signal.Context, value V) error
+	In   Outlet[V]
 }
 
 func (u *UnarySink[V]) InFrom(outlets ...Outlet[V]) {
@@ -45,4 +47,7 @@ func (u *UnarySink[V]) OutTo(_ ...Inlet[V]) {
 	panic("[confluence.Sink] - cannot pipe values out")
 }
 
-func (u *UnarySink[V]) Flow(ctx signal.Context) {}
+func (u *UnarySink[V]) Flow(ctx signal.Context, opts ...FlowOption) {
+	fo := newFlowOptions(opts)
+	signal.GoRange(ctx, u.In.Outlet(), func(v V) error { return u.Sink(ctx, v) }, fo.signal...)
+}

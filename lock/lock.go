@@ -3,30 +3,26 @@ package lock
 import "sync"
 
 type Lock interface {
+	// Acquire blocks until the lock is acquired.
 	Acquire()
+	// TryAcquire attempts to acquire the lock. Returns true if the lock was acquired.
+	// If true is returned, the lock must be released after work is done.
 	TryAcquire() bool
+	// Release releases the lock. In some implementations, this operation may be
+	// idempotent. In other implementations, releasing an open lock may panic.
 	Release()
 }
 
-type idempotent struct {
-	mu *sync.Mutex
-}
+// Idempotent is a lock that can be released even if it has not been acquired.
+func Idempotent() Lock { return idempotent{Mutex: &sync.Mutex{}} }
 
-func Idempotent() Lock { return idempotent{mu: &sync.Mutex{}} }
+type idempotent struct{ *sync.Mutex }
 
-// Acquire blocks until a idempotent is acquired.
-func (l idempotent) Acquire() { l.mu.Lock() }
+// Acquire implements Lock.
+func (l idempotent) Acquire() { l.Lock() }
 
-// TryAcquire attempts to acquire the idempotent.
-// Returns true if the idempotent was acquired. If true is returned, the
-//idempotent MUST be released after work is done.
-func (l idempotent) TryAcquire() (acquired bool) { return l.mu.TryLock() }
+// TryAcquire implements Lock.
+func (l idempotent) TryAcquire() (acquired bool) { return l.TryLock() }
 
-// Release the idempotent.
-func (l idempotent) Release() {
-	if l.TryAcquire() {
-		l.mu.Unlock()
-	} else {
-		l.mu.Unlock()
-	}
-}
+// Release implements Lock.
+func (l idempotent) Release() { l.TryAcquire(); l.Unlock() }
