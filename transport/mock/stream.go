@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/transport"
-	"github.com/sirupsen/logrus"
 )
 
 // Stream is a mock implementation of the transport.Stream interface.
@@ -80,7 +79,6 @@ func (s *StreamClient[I, O]) Receive() (resp O, err error) {
 
 // CloseSend implements the transport.StreamClient interface.
 func (s *StreamClient[I, O]) CloseSend() error {
-	logrus.Warn("Closing Send", s.requests)
 	s.clientErrC <- transport.EOF
 	close(s.requests)
 	return nil
