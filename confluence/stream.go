@@ -61,3 +61,18 @@ func (s *streamImpl[V]) SetOutletAddress(addr address.Address) { s.outletAddr = 
 
 // NewStream opens a new Stream with the given buffer capacity.
 func NewStream[V Value](buffer int) Stream[V] { return &streamImpl[V]{values: make(chan V, buffer)} }
+
+type inletImpl[V Value] struct {
+	addr   address.Address
+	values chan<- V
+}
+
+func NewInlet[V Value](ch chan<- V) Inlet[V] { return &inletImpl[V]{values: ch} }
+
+func (i *inletImpl[V]) Inlet() chan<- V { return i.values }
+
+func (i *inletImpl[V]) InletAddress() address.Address { return i.addr }
+
+func (i *inletImpl[V]) SetInletAddress(addr address.Address) { i.addr = addr }
+
+func (i *inletImpl[V]) Close() { close(i.values) }

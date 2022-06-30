@@ -19,7 +19,7 @@ func WrapKVIter[E any](iter kv.Iterator, opts ...Option) *KVIterator[E] {
 	return &KVIterator[E]{Iterator: iter, options: newOptions(opts...)}
 }
 
-// Value returns the decoded value from the iterator. Iter.Valid must be true
+// Value returns the decoded value from the iterator. Iter.Alive must be true
 // for calls to return a valid value.
 func (k *KVIterator[E]) Value() (entry E) {
 	if err := k.decoder.Decode(k.Iterator.Value(), &entry); err != nil {
