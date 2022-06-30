@@ -6,7 +6,12 @@ type GoOption func(o *goOptions)
 
 func Defer(f func()) GoOption { return func(o *goOptions) { o.deferals = append(o.deferals, f) } }
 
+func WithKey(key string) GoOption {
+	return func(o *goOptions) { o.key = key }
+}
+
 type goOptions struct {
+	key      string
 	deferals []func()
 }
 
