@@ -1,6 +1,7 @@
 package confluence
 
 import (
+	"github.com/arya-analytics/x/errutil"
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/transport"
 	"github.com/cockroachdb/errors"
@@ -41,6 +42,48 @@ func (s *Sender[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 	}, fo.Signal...)
 }
 
+type MultiSender[M transport.Message] struct {
+	Senders []transport.StreamSender[M]
+	UnarySink[M]
+}
+
+func (m *MultiSender[M]) Flow(ctx signal.Context, opts ...FlowOption) {
+	fo := NewFlowOptions(opts)
+	ctx.Go(func() error {
+		var err error
+		defer func() {
+			err = errors.CombineErrors(m.closeSenders(), err)
+		}()
+	o:
+		for {
+			select {
+			case <-ctx.Done():
+				err = errors.CombineErrors(err, ctx.Err())
+				break o
+			case res, ok := <-m.UnarySink.In.Outlet():
+				if !ok {
+					break o
+				}
+				for _, sender := range m.Senders {
+					if err := sender.Send(res); err != nil {
+						err = errors.CombineErrors(err, err)
+						break o
+					}
+				}
+			}
+		}
+		return err
+	}, fo.Signal...)
+}
+
+func (m *MultiSender[M]) closeSenders() error {
+	c := errutil.NewCatchSimple(errutil.WithAggregation())
+	for _, s := range m.Senders {
+		c.Exec(s.CloseSend)
+	}
+	return c.Error()
+}
+
 // Receiver wraps transport.StreamReceiver to provide a confluence compatible
 // interface for receiving messages from a network transport.
 type Receiver[M transport.Message] struct {
@@ -57,6 +100,8 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 	o:
 		for {
 			select {
+			case <-ctx.Done():
+				err = errors.CombineErrors(err, ctx.Err())
 			default:
 				res, rErr := r.Receiver.Receive()
 				if errors.Is(rErr, transport.EOF) {

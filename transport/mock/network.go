@@ -36,11 +36,16 @@ func (n *Network[I, O]) RouteUnary(host address.Address) *Unary[I, O] {
 	return t
 }
 
+const defaultStreamBuffer = 10
+
 // RouteStream returns a new transport.Stream hosted at the given address.
 // This transport is not reachable by other hosts in the network until
 // transport.Stream.Handle is called.
 func (n *Network[I, O]) RouteStream(host address.Address, buffer int) *Stream[I, O] {
 	addr := n.parseTarget(host)
+	if buffer <= 0 {
+		buffer = defaultStreamBuffer
+	}
 	t := &Stream[I, O]{Address: addr, Network: n, BufferSize: buffer}
 	n.StreamRoutes[addr] = t
 	return t
