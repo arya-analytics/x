@@ -1,7 +1,6 @@
 package signal
 
 import (
-	"runtime/trace"
 	"time"
 )
 
@@ -23,10 +22,8 @@ func (c *core) Go(f func() error, opts ...GoOption) {
 	}
 	o := newGoOptions(opts)
 	go func() {
-		r := trace.StartRegion(c, o.key)
 		defer c.runPostlude(o)
 		err := f()
-		r.End()
 		c.fatal <- err
 	}()
 }

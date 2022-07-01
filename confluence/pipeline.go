@@ -112,14 +112,14 @@ func (p *Pipeline[V]) Sink(addr address.Address, sink Sink[V]) {
 // Flow implements the Segment interface.
 func (p *Pipeline[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 	p.constructEndpointRoutes()
-	for _, seg := range p.segments {
-		seg.Flow(ctx)
+	for addr, seg := range p.segments {
+		seg.Flow(ctx, WithAddress(addr))
 	}
-	for _, source := range p.sources {
-		source.Flow(ctx)
+	for addr, source := range p.sources {
+		source.Flow(ctx, WithAddress(addr))
 	}
-	for _, sink := range p.sinks {
-		sink.Flow(ctx)
+	for addr, sink := range p.sinks {
+		sink.Flow(ctx, WithAddress(addr))
 	}
 }
 

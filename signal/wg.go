@@ -15,6 +15,7 @@ type WaitGroup interface {
 	// Stopped returns a channel that is closed when the context is canceled and all
 	// running goroutines have exited.
 	Stopped() <-chan struct{}
+	AnyExited() bool
 }
 
 // WaitOnAny implements the WaitGroup interface.
@@ -23,9 +24,9 @@ func (c *core) WaitOnAny(allowCtx bool) error {
 }
 
 // WaitOnAll implements the WaitGroup interface.
-func (c *core) WaitOnAll() error {
-	return c.waitForNToExit(c.numRunning(), true)
-}
+func (c *core) WaitOnAll() error { return c.waitForNToExit(c.numRunning(), true) }
+
+func (c *core) AnyExited() bool { return c.NumExited() > 0 }
 
 // Stopped implements the WaitGroup interface.
 func (c *core) Stopped() <-chan struct{} { return c.stopped }

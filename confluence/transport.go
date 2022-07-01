@@ -9,7 +9,6 @@ import (
 // Sender wraps transport.StreamSender to provide a confluence compatible
 // interface for sending messages over a network transport.
 type Sender[M transport.Message] struct {
-	Name   string
 	Sender transport.StreamSender[M]
 	UnarySink[M]
 }
@@ -18,32 +17,33 @@ type Sender[M transport.Message] struct {
 func (s *Sender[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 	fo := NewFlowOptions(opts)
 	ctx.Go(func() error {
+		var err error
 		defer func() {
-			if err := s.Sender.CloseSend(); err != nil {
-				ctx.Transient() <- err
-			}
+			err = errors.CombineErrors(s.Sender.CloseSend(), err)
 		}()
+	o:
 		for {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				err = errors.CombineErrors(err, ctx.Err())
+				break o
 			case res, ok := <-s.UnarySink.In.Outlet():
 				if !ok {
-					return nil
+					break o
 				}
 				if err := s.Sender.Send(res); err != nil {
-					ctx.Transient() <- err
-					return nil
+					err = errors.CombineErrors(err, err)
+					break o
 				}
 			}
 		}
+		return err
 	}, fo.Signal...)
 }
 
 // Receiver wraps transport.StreamReceiver to provide a confluence compatible
 // interface for receiving messages from a network transport.
 type Receiver[M transport.Message] struct {
-	Name     string
 	Receiver transport.StreamReceiver[M]
 	UnarySource[M]
 	flowing bool
@@ -53,19 +53,22 @@ type Receiver[M transport.Message] struct {
 func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 	fo := NewFlowOptions(opts)
 	ctx.Go(func() error {
+		var err error
+	o:
 		for {
 			select {
 			default:
-				res, err := r.Receiver.Receive()
-				if errors.Is(err, transport.EOF) {
-					return nil
+				res, rErr := r.Receiver.Receive()
+				if errors.Is(rErr, transport.EOF) {
+					break o
 				}
-				if err != nil {
-					ctx.Transient() <- err
-					return nil
+				if rErr != nil {
+					err = err
+					break o
 				}
 				r.UnarySource.Out.Inlet() <- res
 			}
 		}
+		return err
 	}, fo.Signal...)
 }

@@ -1,6 +1,9 @@
 package confluence
 
-import "github.com/arya-analytics/x/signal"
+import (
+	"github.com/arya-analytics/x/address"
+	"github.com/arya-analytics/x/signal"
+)
 
 type FlowOptions struct {
 	Signal []signal.GoOption
@@ -18,4 +21,8 @@ type FlowOption func(fo *FlowOptions)
 
 func Defer(f func()) FlowOption {
 	return func(fo *FlowOptions) { fo.Signal = append(fo.Signal, signal.Defer(f)) }
+}
+
+func WithAddress(addr address.Address) FlowOption {
+	return func(fo *FlowOptions) { fo.Signal = append(fo.Signal, signal.WithKey(string(addr))) }
 }
