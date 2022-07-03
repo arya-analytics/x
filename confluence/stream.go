@@ -2,36 +2,14 @@ package confluence
 
 import "github.com/arya-analytics/x/address"
 
-// Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
-// and an addressable Inlet. These addresses are best represented as unique locations where values
-// are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
-// Segments, as long as those segments perform are replicates of one another..
-type Stream[V Value] interface {
-	Inlet[V]
-	Outlet[V]
-}
+// NewStream opens a new Stream with the given buffer capacity.
+func NewStream[V Value](buffer int) Stream[V] { return &streamImpl[V]{values: make(chan V, buffer)} }
 
-// Inlet is the end of a Stream that accepts values and can be addressed.
-type Inlet[V Value] interface {
-	// Inlet pipes a value through the streamImpl.
-	Inlet() chan<- V
-	// InletAddress returns the address of the Inlet.
-	InletAddress() address.Address
-	// SetInletAddress sets the OutletAddress of the Inlet.
-	SetInletAddress(address.Address)
-	// Close closes the inlet.
-	Close()
-}
+// NewInlet returns an Inlet that wraps the provided channel.
+func NewInlet[V Value](ch chan<- V) Inlet[V] { return &inletImpl[V]{values: ch} }
 
-// Outlet is the end of a Stream that emits values and can be addressed.
-type Outlet[V Value] interface {
-	// Outlet receives a value from the Stream.
-	Outlet() <-chan V
-	// OutletAddress returns the address of the Outlet.
-	OutletAddress() address.Address
-	// SetOutletAddress sets the InletAddress of the Outlet.
-	SetOutletAddress(address.Address)
-}
+// NewOutlet returns an Outlet that wraps the provided channel.
+func NewOutlet[V Value](ch <-chan V) Outlet[V] { return &outletImpl[V]{values: ch} }
 
 type streamImpl[V Value] struct {
 	inletAddr  address.Address
@@ -59,20 +37,33 @@ func (s *streamImpl[V]) OutletAddress() address.Address { return s.outletAddr }
 // SetOutletAddress implements Stream.
 func (s *streamImpl[V]) SetOutletAddress(addr address.Address) { s.outletAddr = addr }
 
-// NewStream opens a new Stream with the given buffer capacity.
-func NewStream[V Value](buffer int) Stream[V] { return &streamImpl[V]{values: make(chan V, buffer)} }
-
 type inletImpl[V Value] struct {
 	addr   address.Address
 	values chan<- V
 }
 
-func NewInlet[V Value](ch chan<- V) Inlet[V] { return &inletImpl[V]{values: ch} }
-
+// Inlet implements Inlet.
 func (i *inletImpl[V]) Inlet() chan<- V { return i.values }
 
+// InletAddress implements Inlet.
 func (i *inletImpl[V]) InletAddress() address.Address { return i.addr }
 
+// SetInletAddress implements Inlet.
 func (i *inletImpl[V]) SetInletAddress(addr address.Address) { i.addr = addr }
 
+// Close implements inlet.
 func (i *inletImpl[V]) Close() { close(i.values) }
+
+type outletImpl[V Value] struct {
+	addr   address.Address
+	values <-chan V
+}
+
+// Outlet implements Outlet.
+func (o *outletImpl[V]) Outlet() <-chan V { return o.values }
+
+// OutletAddress implements Outlet.
+func (o *outletImpl[V]) OutletAddress() address.Address { return o.addr }
+
+// SetOutletAddress implements Outlet.
+func (o *outletImpl[V]) SetOutletAddress(addr address.Address) { o.addr = addr }

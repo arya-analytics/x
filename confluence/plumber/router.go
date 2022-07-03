@@ -1,8 +1,8 @@
-package confluence
+package plumber
 
 import (
 	"github.com/arya-analytics/x/address"
-	"github.com/cockroachdb/errors"
+	. "github.com/arya-analytics/x/confluence"
 )
 
 // Stitch is the method a Router  uses to stitch together the segments specified in its route.
@@ -23,16 +23,12 @@ const (
 	StitchConvergent
 )
 
-// ErrNotFound is returned when a Router cannot find an address.
-var ErrNotFound = errors.New("[confluence] - segment not found")
-
-func notFound(addr address.Address) error { return errors.Wrapf(ErrNotFound, "address %s", addr) }
-
 type Router[V Value] interface {
+	Route(p *Pipeline) error
+	PreRoute(p *Pipeline) func() error
 	sourceTargets() []address.Address
 	sinkTargets() []address.Address
 	capacity() int
-	Route(p *Pipeline[V]) error
 }
 
 type UnaryRouter[V Value] struct {
@@ -41,8 +37,12 @@ type UnaryRouter[V Value] struct {
 	Capacity     int
 }
 
-func (u UnaryRouter[V]) Route(p *Pipeline[V]) error {
-	return p.route(u.SourceTarget, u.SinkTarget, NewStream[V](u.Capacity))
+func (u UnaryRouter[V]) Route(p *Pipeline) error {
+	return route(p, u.SourceTarget, u.SinkTarget, NewStream[V](u.Capacity))
+}
+
+func (u UnaryRouter[V]) PreRoute(p *Pipeline) func() error {
+	return func() error { return u.Route(p) }
 }
 
 // sourceTargets implements Router.
@@ -61,7 +61,7 @@ type MultiRouter[V Value] struct {
 	Stitch        Stitch
 }
 
-func (m MultiRouter[V]) Route(p *Pipeline[V]) error {
+func (m MultiRouter[V]) Route(p *Pipeline) error {
 	switch m.Stitch {
 	case StitchUnary:
 		return m.linear(p)
@@ -75,33 +75,44 @@ func (m MultiRouter[V]) Route(p *Pipeline[V]) error {
 	panic("[confluence.Router] - invalid stitch provided")
 }
 
+func (m MultiRouter[V]) PreRoute(p *Pipeline) func() error {
+	return func() error { return m.Route(p) }
+}
+
 func (m MultiRouter[V]) sourceTargets() []address.Address { return m.SourceTargets }
 
 func (m MultiRouter[V]) sinkTargets() []address.Address { return m.SinkTargets }
 
 func (m MultiRouter[V]) capacity() int { return m.Capacity }
 
-func (m *MultiRouter[V]) linear(p *Pipeline[V]) error {
+func (m *MultiRouter[V]) linear(p *Pipeline) error {
 	stream := NewStream[V](m.Capacity)
-	return m.iterAddresses(func(from address.Address, to address.Address) error { return p.route(from, to, stream) })
+	return m.iterAddresses(func(from address.Address,
+		to address.Address) error {
+		return route(p, from, to, stream)
+	})
 }
 
-func (m MultiRouter[V]) weave(p *Pipeline[V]) error {
+func (m MultiRouter[V]) weave(p *Pipeline) error {
 	return m.iterAddresses(func(from address.Address, to address.Address) error {
 		return UnaryRouter[V]{from, to, m.Capacity}.Route(p)
 	})
 }
 
-func (m MultiRouter[V]) divergent(p *Pipeline[V]) error {
+func (m MultiRouter[V]) divergent(p *Pipeline) error {
 	return m.iterSources(func(from address.Address) error {
 		stream := NewStream[V](m.Capacity)
-		return m.iterSinks(func(to address.Address) error { return p.route(from, to, stream) })
+		return m.iterSinks(func(to address.Address) error {
+			return route(p, from, to, stream)
+		})
 	})
 }
-func (m MultiRouter[V]) convergent(p *Pipeline[V]) error {
+func (m MultiRouter[V]) convergent(p *Pipeline) error {
 	return m.iterSinks(func(to address.Address) error {
 		stream := NewStream[V](m.Capacity)
-		return m.iterSources(func(from address.Address) error { return p.route(from, to, stream) })
+		return m.iterSources(func(from address.Address) error {
+			return route(p, from, to, stream)
+		})
 	})
 }
 
@@ -131,5 +142,21 @@ func (m MultiRouter[V]) iterSinks(f func(to address.Address) error) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func route[V Value](p *Pipeline, sourceTarget, sinkTarget address.Address, stream Stream[V]) error {
+	source, err := GetSource[V](p, sourceTarget)
+	if err != nil {
+		return err
+	}
+	sink, err := GetSink[V](p, sinkTarget)
+	if err != nil {
+		return err
+	}
+	stream.SetInletAddress(sinkTarget)
+	source.OutTo(stream)
+	stream.SetOutletAddress(sourceTarget)
+	sink.InFrom(stream)
 	return nil
 }

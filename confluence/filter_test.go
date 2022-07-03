@@ -9,13 +9,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Filter", func() {
+var _ = Describe("Apply", func() {
 	It("Should filter values correctly", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](3)
 		filter := confluence.Filter[int]{
-			Filter: func(ctx signal.Context, x int) (bool, error) {
+			Apply: func(ctx signal.Context, x int) (bool, error) {
 				return x%3 == 0, nil
 			}}
 		filter.InFrom(inlet)

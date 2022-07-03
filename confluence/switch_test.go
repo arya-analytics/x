@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var _ = Describe("Switch", func() {
+var _ = Describe("Apply", func() {
 	It("Should route values to the correct inlets", func() {
 		input := confluence.NewStream[int](3)
 
@@ -23,11 +23,11 @@ var _ = Describe("Switch", func() {
 		single.SetInletAddress("single")
 
 		router := &confluence.Switch[int]{
-			Switch: func(ctx signal.Context, i int) (address.Address, error) {
+			Apply: func(ctx signal.Context, i int) (address.Address, bool, error) {
 				if i%2 == 0 {
-					return "single", nil
+					return "single", true, nil
 				} else {
-					return "double", nil
+					return "double", true, nil
 				}
 			},
 		}
@@ -51,9 +51,8 @@ var _ = Describe("Switch", func() {
 		stream2 := confluence.NewStream[int](3)
 		single := confluence.NewStream[int](5)
 		single.SetInletAddress("single")
-		router := &confluence.Switch[int]{Switch: func(ctx signal.Context,
-			i int) (address.Address, error) {
-			return "single", nil
+		router := &confluence.Switch[int]{Apply: func(ctx signal.Context, i int) (address.Address, bool, error) {
+			return "single", true, nil
 		}}
 		router.InFrom(stream1)
 		router.InFrom(stream2)

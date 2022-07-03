@@ -8,85 +8,80 @@ import (
 
 // |||||| SWITCH ||||||
 
-// Switch is a segment that reads values from a set of input streams, resolves their address,
-// and sends them to the appropriate output streams. Switch is a more efficient implementation of
-// Map for when the addresses of input streams are not important.
+// Switch is a Segment that reads a value from an Inlet, resolves its address,
+// and writes the value to the correct Outlet. Switch is a more efficient implementation
+// of Map for cases when the addresses of input streams do not matter.
 type Switch[V Value] struct {
-	// Switch is a function that resolves the address of a Value.
-	Switch func(ctx signal.Context, value V) (address.Address, error)
-	inFrom []Outlet[V]
-	outTo  map[address.Address]Inlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (r *Switch[V]) InFrom(outlets ...Outlet[V]) {
-	r.inFrom = append(r.inFrom, outlets...)
+	// Apply resolves the address of the input value. If ok is false, the
+	// value is not written to any output stream. If error is non-nil, the
+	// switch terminates and returns the error as fatal to the context.
+	Apply func(ctx signal.Context, value V) (address.Address, bool, error)
+	Out   map[address.Address]Inlet[V]
+	AbstractMultiSink[V]
 }
 
 // OutTo implements the Segment interface.
 func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
-	if r.outTo == nil {
-		r.outTo = make(map[address.Address]Inlet[V])
+	if r.Out == nil {
+		r.Out = make(map[address.Address]Inlet[V])
 	}
 	for _, inlet := range inlets {
-		r.outTo[inlet.InletAddress()] = inlet
+		r.Out[inlet.InletAddress()] = inlet
 	}
 }
 
 // Flow implements the Segment interface.
 func (r *Switch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := NewFlowOptions(opts)
-	goRangeEach(ctx, r.inFrom, func(v V) error {
-		addr, err := r.Switch(ctx, v)
-		if err != nil || addr == "" {
+	goRangeEach(ctx, r.In, func(v V) error {
+		addr, ok, err := r.Apply(ctx, v)
+		if err != nil || !ok {
 			return err
 		}
-		inlet, ok := r.outTo[addr]
-		if !ok {
-			panic(fmt.Sprintf("address %s not found", addr))
-		}
-		inlet.Inlet() <- v
+		r.send(addr, v)
 		return nil
-	}, fo.Signal...)
+	}, opts...)
+}
+
+func (r *Switch[V]) send(addr address.Address, v V) {
+	inlet, ok := r.Out[addr]
+	if !ok {
+		panic(fmt.Sprintf("[confluence.Apply] - address %s not found", addr))
+	}
+	inlet.Inlet() <- v
 }
 
 // |||||| BATCH ||||||
 
 type BatchSwitch[V Value] struct {
-	Switch func(ctx signal.Context, value V) (map[address.Address]V, error)
-	Core   Switch[V]
+	Apply func(ctx signal.Context, value V) (map[address.Address]V, error)
+	Switch[V]
 }
 
-func (b *BatchSwitch[V]) InFrom(outlets ...Outlet[V]) { b.Core.InFrom(outlets...) }
-
-func (b *BatchSwitch[V]) OutTo(inlets ...Inlet[V]) { b.Core.OutTo(inlets...) }
-
 func (b *BatchSwitch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := NewFlowOptions(opts)
-	goRangeEach(ctx, b.Core.inFrom, func(v V) error {
-		addrMap, err := b.Switch(ctx, v)
+	goRangeEach(ctx, b.Switch.In, func(v V) error {
+		addrMap, err := b.Apply(ctx, v)
 		if err != nil {
 			return err
 		}
 		for addr, batch := range addrMap {
-			inlet, ok := b.Core.outTo[addr]
-			if !ok {
-				panic("[confluence.BatchSwitch] - address not found")
-			}
-			inlet.Inlet() <- batch
+			b.send(addr, batch)
 		}
 		return nil
-	}, fo.Signal...)
+	}, opts...)
 }
 
 // |||||| MAP |||||||
 
-// Map is a segment that reads values from an addresses input streamImpl, maps them to an output address, and
-// sends them. Map is a relatively inefficient Segment, use Switch when possible.
+// Map is a Segment that a values from a set of Inlet(s), resolves its address,
+// and writes the value to the correct Outlet. Map is a less efficient implementation
+// of Switch for cases when the addresses of Inlet(s) matter.
 type Map[V Value] struct {
-	Map func(ctx signal.Context, addr address.Address, v Value) (address.Address, error)
-	In  map[address.Address]Outlet[V]
-	Out map[address.Address]Inlet[V]
+	// Apply resolves the address of the input value. If ok is false, the
+	// value is not written to any output stream. If error is non-nil, the
+	// switch terminates and returns the error as fatal to the context.
+	Apply func(ctx signal.Context, addr address.Address, v Value) (address.Address, bool, error)
+	In    map[address.Address]Outlet[V]
+	Switch[V]
 }
 
 // InFrom implements the Segment interface.
@@ -115,11 +110,11 @@ func (m *Map[V]) Flow(ctx signal.Context, opts ...FlowOption) {
 	for inAddr, outlet := range m.In {
 		outlet = outlet
 		signal.GoRange(ctx, outlet.Outlet(), func(v V) error {
-			addr, err := m.Map(ctx, inAddr, v)
-			if err != nil {
+			addr, ok, err := m.Apply(ctx, inAddr, v)
+			if err != nil || !ok {
 				return err
 			}
-			m.Out[addr].Inlet() <- v
+			m.send(addr, v)
 			return nil
 		}, fo.Signal...)
 	}
