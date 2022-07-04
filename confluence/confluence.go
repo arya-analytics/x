@@ -37,7 +37,7 @@
 //
 //		2. Source - A Source is the part of the Segment that can send values to output
 //		streams (Inlet(s)). Inlets(s) are bound to the Sink (and therefore Segment)
-//		by calling the Sink.OutTo(inlets ...Inlet[ValueType]) method.
+//		by calling the ApplySink.OutTo(inlets ...Inlet[ValueType]) method.
 //
 //		3. Sink - A Sink is the part of the Segment that can receive values.
 //		Input streams (Outlet(s)). Outlet(s) are bound to the Sink (and therefore Segment)
@@ -94,7 +94,7 @@ type Segment[I, O Value] interface {
 // runtime context or behavior.
 type Flow interface {
 	// Flow starts the Flow process under the provided signal.Context.
-	Flow(ctx signal.Context, opts ...FlowOption)
+	Flow(ctx signal.Context, opts ...Option)
 }
 
 // Sink is an interface that accepts values from a set of Outlet(s). The user of a Sink
@@ -110,15 +110,22 @@ type Sink[O Value] interface {
 type Source[I Value] interface {
 	OutTo(inlets ...Inlet[I])
 	Flow
+	InletCloser
 }
 
-// Transform is a template for a function  that transforms a value from one type to
-// another. A Transform can perform IO, Network Operations, Aggregations, or any other
+// InletCloser is a type that contains a set of Inlet(s)  that can be closed. This type
+// also typically implements the Source interface.
+type InletCloser interface {
+	CloseInlets()
+}
+
+// TransformFunc is a template for a function  that transforms a value from one type to
+// another. A TransformFunc can perform IO, Network Operations, Aggregations, or any other
 // type of operation.
-type Transform[I, O Value] struct {
-	//	Apply is the function that performs the transformation. The user of the LinearTransform
+type TransformFunc[I, O Value] struct {
+	//	ApplyTransform is the function that performs the transformation. The user of the LinearTransform
 	//	should define this function before Flow is called.
-	Apply func(ctx signal.Context, i I) (o O, ok bool, err error)
+	ApplyTransform func(ctx signal.Context, i I) (o O, ok bool, err error)
 }
 
 // Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet

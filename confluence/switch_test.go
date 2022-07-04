@@ -5,73 +5,82 @@ import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/signal"
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	//log "github.com/sirupsen/logrus"
-	"time"
 )
 
-var _ = Describe("Apply", func() {
-	It("Should route values to the correct inlets", func() {
-		input := confluence.NewStream[int](3)
-
-		double := confluence.NewStream[int](3)
-		double.SetInletAddress("double")
-
-		single := confluence.NewStream[int](3)
-		single.SetInletAddress("single")
-
-		router := &confluence.Switch[int]{
-			Apply: func(ctx signal.Context, i int) (address.Address, bool, error) {
+var _ = Describe("ApplySink", func() {
+	Context("Single Inlet", func() {
+		var (
+			ctx    signal.Context
+			cancel context.CancelFunc
+			input  confluence.Stream[int]
+			double confluence.Stream[int]
+			single confluence.Stream[int]
+			sw     *confluence.Switch[int]
+		)
+		BeforeEach(func() {
+			ctx, cancel = signal.Background()
+			input = confluence.NewStream[int](3)
+			double = confluence.NewStream[int](3)
+			single = confluence.NewStream[int](3)
+			double.SetInletAddress("double")
+			single.SetInletAddress("single")
+			sw = &confluence.Switch[int]{}
+			sw.ApplySwitch = func(ctx signal.Context, i int) (address.Address, bool, error) {
 				if i%2 == 0 {
 					return "single", true, nil
 				} else {
 					return "double", true, nil
 				}
-			},
-		}
-		router.InFrom(input)
-		router.OutTo(double)
-		router.OutTo(single)
-		ctx, cancel := signal.WithCancel(context.Background())
-		router.Flow(ctx)
-		input.Inlet() <- 1
-		input.Inlet() <- 2
-		input.Inlet() <- 3
-		time.Sleep(2 * time.Millisecond)
-		cancel()
-		Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())
-		Expect(<-double.Outlet()).To(Equal(1))
-		Expect(<-single.Outlet()).To(Equal(2))
-		Expect(<-double.Outlet()).To(Equal(3))
+			}
+			sw.InFrom(input)
+			sw.OutTo(double)
+			sw.OutTo(single)
+			sw.Flow(ctx, confluence.CloseInletsOnExit())
+		})
+		AfterEach(func() {
+			cancel()
+		})
+		It("Should route values to the correct inlets", func() {
+			input.Inlet() <- 1
+			input.Inlet() <- 2
+			input.Inlet() <- 3
+			input.Close()
+			Expect(ctx.WaitOnAll()).To(Succeed())
+			Expect(<-double.Outlet()).To(Equal(1))
+			Expect(<-single.Outlet()).To(Equal(2))
+			Expect(<-double.Outlet()).To(Equal(3))
+			_, ok := <-double.Outlet()
+			Expect(ok).To(BeFalse())
+		})
 	})
-	It("Should route values from multiple inlets correctly", func() {
+	It("Should route values from multiple outlets correctly", func() {
 		stream1 := confluence.NewStream[int](3)
 		stream2 := confluence.NewStream[int](3)
 		single := confluence.NewStream[int](5)
 		single.SetInletAddress("single")
-		router := &confluence.Switch[int]{Apply: func(ctx signal.Context, i int) (address.Address, bool, error) {
+		sw := &confluence.Switch[int]{}
+		sw.ApplySwitch = func(ctx signal.Context, i int) (address.Address, bool, error) {
 			return "single", true, nil
-		}}
-		router.InFrom(stream1)
-		router.InFrom(stream2)
-		router.OutTo(single)
+		}
+		sw.InFrom(stream1)
+		sw.InFrom(stream2)
+		sw.OutTo(single)
 		ctx, cancel := signal.WithCancel(context.Background())
-		router.Flow(ctx)
+		defer cancel()
+		sw.Flow(ctx, confluence.CloseInletsOnExit())
 		stream1.Inlet() <- 1
 		stream1.Inlet() <- 2
 		stream2.Inlet() <- 3
 		stream2.Inlet() <- 4
+		stream2.Close()
+		stream1.Close()
+		Expect(ctx.WaitOnAll()).To(Succeed())
 		count := 0
 		for range single.Outlet() {
 			count++
-			if count == 4 {
-				break
-			}
 		}
-		cancel()
-		Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())
 		Expect(count).To(Equal(4))
 	})
 })

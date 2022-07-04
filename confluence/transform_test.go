@@ -14,7 +14,7 @@ var _ = Describe("transform", func() {
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](4)
 		square := &confluence.LinearTransform[int, int]{}
-		square.Apply = func(ctx signal.Context, i int) (int, bool, error) {
+		square.ApplyTransform = func(ctx signal.Context, i int) (int, bool, error) {
 			return i * i, true, nil
 		}
 		square.InFrom(inlet)

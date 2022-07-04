@@ -1,121 +1,79 @@
 package confluence
 
 import (
-	"fmt"
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
 )
 
-// |||||| SWITCH ||||||
+type SwitchFunc[V Value] struct {
+	// ApplySwitch resolves the address of the input value. If ok is false, the
+	// value is not written to any output stream. If error is non-nil, the
+	// switch terminates and returns the error as fatal to the context.
+	ApplySwitch func(signal.Context, V) (address.Address, bool, error)
+}
 
-// Switch is a Segment that reads a value from an Inlet, resolves its address,
-// and writes the value to the correct Outlet. Switch is a more efficient implementation
-// of Map for cases when the addresses of input streams do not matter.
+// Switch is a Segment that reads a value from Inlet(s), resolves its address,
+// and writes the value to the matching Outlet.
 type Switch[V Value] struct {
-	// Apply resolves the address of the input value. If ok is false, the
-	// value is not written to any output stream. If error is non-nil, the
-	// switch terminates and returns the error as fatal to the context.
-	Apply func(ctx signal.Context, value V) (address.Address, bool, error)
-	Out   map[address.Address]Inlet[V]
-	AbstractMultiSink[V]
+	SwitchFunc[V]
+	MultiSink[V]
+	AbstractAddressableSource[V]
 }
 
-// OutTo implements the Segment interface.
-func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
-	if r.Out == nil {
-		r.Out = make(map[address.Address]Inlet[V])
-	}
-	for _, inlet := range inlets {
-		r.Out[inlet.InletAddress()] = inlet
-	}
+// Flow implements the Flow interface, reading values from the Outlet, resolving their
+// address, and sending them to the correct Inlet. If an address cannot be found,
+// the switch will exit with an address.TargetNotFound error.
+func (sw *Switch[V]) Flow(ctx signal.Context, opts ...Option) {
+	fo := NewOptions(opts)
+	fo.AttachInletCloser(sw)
+	sw.GoRangeEach(ctx, sw._switch, fo.Signal...)
 }
 
-// Flow implements the Segment interface.
-func (r *Switch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	goRangeEach(ctx, r.In, func(v V) error {
-		addr, ok, err := r.Apply(ctx, v)
-		if err != nil || !ok {
+func (sw *Switch[V]) _switch(ctx signal.Context, v V) error {
+	target, ok, err := sw.SwitchFunc.ApplySwitch(ctx, v)
+	if !ok || err != nil {
+		return err
+	}
+	return sw.Send(target, v)
+}
+
+type BatchSwitchFunc[I, O Value] struct {
+	// Apply resolves the address of the input value. The caller should bind
+	// output addresses and values to the provided out map. If error is non-nil,
+	// the switch terminates and returns the error as fatal to the context.
+	Apply func(ctx signal.Context, batch I, out map[address.Address]O) error
+}
+
+// BatchSwitch is a Segment that reads a batch of values from an inlet,
+// resolves the addresses of its values into a map, and then sends them to their resolved
+// addresses. BatchSwitch should be used in cases where certain parts of a value may
+// need to be routed to different locations.
+type BatchSwitch[I, O Value] struct {
+	BatchSwitchFunc[I, O]
+	MultiSink[I]
+	AbstractAddressableSource[O]
+	addrMap map[address.Address]O
+}
+
+// Flow implements the Flow interface, reading batches from the Outlet, resolving
+// their address, and sending them to the correct Inlet. If an address cannot be
+// found, the BatchSwitch will exit with an address.NotFound error.
+func (bsw *BatchSwitch[I, O]) Flow(ctx signal.Context, opts ...Option) {
+	fo := NewOptions(opts)
+	fo.AttachInletCloser(bsw)
+	bsw.addrMap = make(map[address.Address]O)
+	bsw.GoRangeEach(ctx, bsw._switch, fo.Signal...)
+}
+
+func (bsw *BatchSwitch[I, O]) _switch(ctx signal.Context, v I) error {
+	if err := bsw.BatchSwitchFunc.Apply(ctx, v, bsw.addrMap); err != nil {
+		return err
+	}
+	for target, batch := range bsw.addrMap {
+		if err := bsw.Send(target, batch); err != nil {
 			return err
 		}
-		r.send(addr, v)
-		return nil
-	}, opts...)
-}
-
-func (r *Switch[V]) send(addr address.Address, v V) {
-	inlet, ok := r.Out[addr]
-	if !ok {
-		panic(fmt.Sprintf("[confluence.Apply] - address %s not found", addr))
+		delete(bsw.addrMap, target)
 	}
-	inlet.Inlet() <- v
-}
-
-// |||||| BATCH ||||||
-
-type BatchSwitch[V Value] struct {
-	Apply func(ctx signal.Context, value V) (map[address.Address]V, error)
-	Switch[V]
-}
-
-func (b *BatchSwitch[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	goRangeEach(ctx, b.Switch.In, func(v V) error {
-		addrMap, err := b.Apply(ctx, v)
-		if err != nil {
-			return err
-		}
-		for addr, batch := range addrMap {
-			b.send(addr, batch)
-		}
-		return nil
-	}, opts...)
-}
-
-// |||||| MAP |||||||
-
-// Map is a Segment that a values from a set of Inlet(s), resolves its address,
-// and writes the value to the correct Outlet. Map is a less efficient implementation
-// of Switch for cases when the addresses of Inlet(s) matter.
-type Map[V Value] struct {
-	// Apply resolves the address of the input value. If ok is false, the
-	// value is not written to any output stream. If error is non-nil, the
-	// switch terminates and returns the error as fatal to the context.
-	Apply func(ctx signal.Context, addr address.Address, v Value) (address.Address, bool, error)
-	In    map[address.Address]Outlet[V]
-	Switch[V]
-}
-
-// InFrom implements the Segment interface.
-func (m *Map[V]) InFrom(outlet ...Outlet[V]) {
-	if m.In == nil {
-		m.In = make(map[address.Address]Outlet[V])
-	}
-	for _, o := range outlet {
-		m.In[o.OutletAddress()] = o
-	}
-}
-
-// OutTo implements the Segment interface.
-func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
-	if m.Out == nil {
-		m.Out = make(map[address.Address]Inlet[V])
-	}
-	for _, i := range inlet {
-		m.Out[i.InletAddress()] = i
-	}
-}
-
-// Flow implements the Segment interface.
-func (m *Map[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := NewFlowOptions(opts)
-	for inAddr, outlet := range m.In {
-		outlet = outlet
-		signal.GoRange(ctx, outlet.Outlet(), func(v V) error {
-			addr, ok, err := m.Apply(ctx, inAddr, v)
-			if err != nil || !ok {
-				return err
-			}
-			m.send(addr, v)
-			return nil
-		}, fo.Signal...)
-	}
+	return nil
 }

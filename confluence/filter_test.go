@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Apply", func() {
+var _ = Describe("ApplySink", func() {
 	It("Should filter values correctly", func() {
 		ctx, cancel := signal.WithCancel(context.Background())
 		inlet := confluence.NewStream[int](3)

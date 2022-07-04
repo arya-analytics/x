@@ -15,9 +15,11 @@ func (s *ungatedSegment) OutTo(inlets ...confluence.Inlet[int]) {}
 
 func (s *ungatedSegment) InFrom(outlets ...confluence.Outlet[int]) {}
 
-func (s *ungatedSegment) Flow(ctx signal.Context, opts ...confluence.FlowOption) {
+func (s *ungatedSegment) Flow(ctx signal.Context, opts ...confluence.Option) {
 	s.flowCount++
 }
+
+func (s *ungatedSegment) CloseInlets() {}
 
 var _ = Describe("Gated", func() {
 	It("Should prevent a segment from flowing if the gate is closed", func() {

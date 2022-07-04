@@ -16,13 +16,17 @@ type Emitter[V Value] struct {
 }
 
 // Flow implements the Flow interface.
-func (e *Emitter[V]) Flow(ctx signal.Context, opts ...FlowOption) {
-	goTick(ctx, e.Interval, func(t time.Time) error {
-		v, err := e.Emit(ctx)
-		if err != nil {
-			return err
-		}
-		e.Out.Inlet() <- v
-		return nil
-	})
+func (e *Emitter[V]) Flow(ctx signal.Context, opts ...Option) {
+	fo := NewOptions(opts)
+	fo.AttachInletCloser(e)
+	signal.GoTick(ctx, e.Interval, e.emit, fo.Signal...)
+}
+
+func (e *Emitter[V]) emit(ctx signal.Context, t time.Time) error {
+	v, err := e.Emit(ctx)
+	if err != nil {
+		return err
+	}
+	e.Out.Inlet() <- v
+	return nil
 }

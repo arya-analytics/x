@@ -1,6 +1,9 @@
 package confluence
 
-import "github.com/arya-analytics/x/address"
+import (
+	"github.com/arya-analytics/x/address"
+	"sync"
+)
 
 // NewStream opens a new Stream with the given buffer capacity.
 func NewStream[V Value](buffer int) Stream[V] { return &streamImpl[V]{values: make(chan V, buffer)} }
@@ -15,6 +18,7 @@ type streamImpl[V Value] struct {
 	inletAddr  address.Address
 	outletAddr address.Address
 	values     chan V
+	once       sync.Once
 }
 
 // Inlet implements Stream.
@@ -26,7 +30,7 @@ func (s *streamImpl[V]) Outlet() <-chan V { return s.values }
 // InletAddress implements Stream.
 func (s *streamImpl[V]) InletAddress() address.Address { return s.inletAddr }
 
-func (s *streamImpl[V]) Close() { close(s.values) }
+func (s *streamImpl[V]) Close() { s.once.Do(func() { close(s.values) }) }
 
 // SetInletAddress implements Stream.
 func (s *streamImpl[V]) SetInletAddress(addr address.Address) { s.inletAddr = addr }
@@ -40,6 +44,7 @@ func (s *streamImpl[V]) SetOutletAddress(addr address.Address) { s.outletAddr = 
 type inletImpl[V Value] struct {
 	addr   address.Address
 	values chan<- V
+	once   sync.Once
 }
 
 // Inlet implements Inlet.
@@ -52,7 +57,15 @@ func (i *inletImpl[V]) InletAddress() address.Address { return i.addr }
 func (i *inletImpl[V]) SetInletAddress(addr address.Address) { i.addr = addr }
 
 // Close implements inlet.
-func (i *inletImpl[V]) Close() { close(i.values) }
+func (i *inletImpl[V]) Close() {
+	i.once.Do(func() { close(i.values) })
+}
+
+func closeInlets[V Value](inlets []Inlet[V]) {
+	for _, in := range inlets {
+		in.Close()
+	}
+}
 
 type outletImpl[V Value] struct {
 	addr   address.Address

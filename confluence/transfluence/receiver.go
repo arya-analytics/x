@@ -15,8 +15,9 @@ type Receiver[M transport.Message] struct {
 }
 
 // Flow implements Flow.
-func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := NewFlowOptions(opts)
+func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
+	fo := NewOptions(opts)
+	fo.AttachInletCloser(r)
 	ctx.Go(func() error {
 		var err error
 	o:
@@ -24,13 +25,14 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 			select {
 			case <-ctx.Done():
 				err = errors.CombineErrors(err, ctx.Err())
+				break o
 			default:
 				res, rErr := r.Receiver.Receive()
 				if errors.Is(rErr, transport.EOF) {
 					break o
 				}
 				if rErr != nil {
-					err = err
+					err = rErr
 					break o
 				}
 				r.AbstractUnarySource.Out.Inlet() <- res
@@ -43,12 +45,13 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...FlowOption) {
 type ReceiverTransform[I Value, M transport.Message] struct {
 	Receiver transport.StreamReceiver[M]
 	AbstractUnarySource[I]
-	Transform[M, I]
+	TransformFunc[M, I]
 }
 
 // Flow implements Flow.
-func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...FlowOption) {
-	fo := NewFlowOptions(opts)
+func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...Option) {
+	fo := NewOptions(opts)
+	fo.AttachInletCloser(r)
 	ctx.Go(func() error {
 		var err error
 	o:
@@ -56,6 +59,7 @@ func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...FlowOption) {
 			select {
 			case <-ctx.Done():
 				err = errors.CombineErrors(err, ctx.Err())
+				break o
 			default:
 				res, rErr := r.Receiver.Receive()
 				if errors.Is(rErr, transport.EOF) {
@@ -65,7 +69,7 @@ func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...FlowOption) {
 					err = err
 					break o
 				}
-				tRes, ok, err := r.Transform(ctx, res)
+				tRes, ok, err := r.ApplyTransform(ctx, res)
 				if !ok {
 					continue o
 				}
