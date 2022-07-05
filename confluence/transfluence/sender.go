@@ -144,7 +144,7 @@ func (s senderMap[M]) send(target address.Address, msg M) error {
 	return sender.Send(msg)
 }
 
-func (s senderMap[M]) closeSenders() error {
+func (s senderMap[M]) close() error {
 	c := errutil.NewCatchSimple(errutil.WithAggregation())
 	for _, s := range s {
 		c.Exec(s.CloseSend)
@@ -153,7 +153,7 @@ func (s senderMap[M]) closeSenders() error {
 }
 
 type SwitchSender[M transport.Message] struct {
-	senderMap[M]
+	Senders senderMap[M]
 	SwitchFunc[M]
 	UnarySink[M]
 }
@@ -163,7 +163,7 @@ func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(func() error {
 		var err error
 		defer func() {
-			err = errors.CombineErrors(sw.closeSenders(), err)
+			err = errors.CombineErrors(sw.Senders.close(), err)
 		}()
 	o:
 		for {
@@ -180,7 +180,7 @@ func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
 					err = swErr
 					break o
 				}
-				if sErr := sw.send(target, msg); sErr != nil {
+				if sErr := sw.Senders.send(target, msg); sErr != nil {
 					err = sErr
 					break o
 				}
@@ -191,7 +191,7 @@ func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
 }
 
 type BatchSwitchSender[I, O transport.Message] struct {
-	senderMap[O]
+	Senders senderMap[O]
 	BatchSwitchFunc[I, O]
 	UnarySink[I]
 }
@@ -201,7 +201,7 @@ func (bsw *BatchSwitchSender[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(func() error {
 		var err error
 		defer func() {
-			err = errors.CombineErrors(bsw.closeSenders(), err)
+			err = errors.CombineErrors(bsw.Senders.close(), err)
 		}()
 	o:
 		for {
@@ -218,7 +218,7 @@ func (bsw *BatchSwitchSender[I, O]) Flow(ctx signal.Context, opts ...Option) {
 					break o
 				}
 				for target, batch := range addrMap {
-					sErr := bsw.send(target, batch)
+					sErr := bsw.Senders.send(target, batch)
 					delete(addrMap, target)
 					if sErr != nil {
 						err = sErr
