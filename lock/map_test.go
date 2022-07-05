@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Map", func() {
+var _ = Describe("ApplySink", func() {
 	It("Should allow the caller to acquire the lock", func() {
 		m := lock.NewMap[int]()
 		Expect(m.Acquire(1)).To(Succeed())

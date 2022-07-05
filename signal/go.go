@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"golang.org/x/sync/errgroup"
 	"time"
 )
 
@@ -28,10 +29,7 @@ func (c *core) Go(f func() error, opts ...GoOption) {
 	}()
 }
 
-func GoRange[V any](ctx Context, ch <-chan V, f func(V) error, opts ...GoOption) {
-	if ctx.Err() != nil {
-		return
-	}
+func GoRange[V any](ctx Context, ch <-chan V, f func(Context, V) error, opts ...GoOption) {
 	ctx.Go(func() error {
 		for {
 			select {
@@ -41,7 +39,7 @@ func GoRange[V any](ctx Context, ch <-chan V, f func(V) error, opts ...GoOption)
 				if !ok {
 					return nil
 				}
-				if err := f(v); err != nil {
+				if err := f(ctx, v); err != nil {
 					return err
 				}
 			}
@@ -49,7 +47,37 @@ func GoRange[V any](ctx Context, ch <-chan V, f func(V) error, opts ...GoOption)
 	}, opts...)
 }
 
-func GoTick(ctx Context, interval time.Duration, f func(t time.Time) error, opts ...GoOption) {
+func GoRangeEach[V any](
+	ctx Context,
+	channels []<-chan V,
+	f func(Context, V) error,
+	opts ...GoOption,
+) {
+	ctx.Go(func() error {
+		wg := errgroup.Group{}
+		for _, ch := range channels {
+			_ch := ch
+			wg.Go(func() error {
+				for {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case v, ok := <-_ch:
+						if !ok {
+							return nil
+						}
+						if err := f(ctx, v); err != nil {
+							return err
+						}
+					}
+				}
+			})
+		}
+		return wg.Wait()
+	}, opts...)
+}
+
+func GoTick(ctx Context, interval time.Duration, f func(Context, time.Time) error, opts ...GoOption) {
 	t := time.NewTicker(interval)
 	GoRange(ctx, t.C, f, append(opts, Defer(func() { t.Stop() }))...)
 }

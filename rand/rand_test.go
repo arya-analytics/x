@@ -7,7 +7,7 @@ import (
 )
 
 var _ = Describe("Rand", func() {
-	Describe("Map", func() {
+	Describe("ApplySink", func() {
 		var (
 			m map[int]int
 		)

@@ -53,7 +53,7 @@ func (n *Network[I, O]) RouteStream(host address.Address, buffer int) *Stream[I,
 
 func (n *Network[I, O]) parseTarget(target address.Address) address.Address {
 	if target == "" {
-		return address.Address(fmt.Sprintf("localhost:%v", len(n.UnaryRoutes)))
+		return address.Address(fmt.Sprintf("localhost:%v", len(n.UnaryRoutes)+len(n.StreamRoutes)))
 	}
 	return target
 }
