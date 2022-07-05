@@ -44,19 +44,19 @@ func (s *Sender[M]) Flow(ctx signal.Context, opts ...Option) {
 	}, fo.Signal...)
 }
 
-// SenderTransform wraps transport.StreamSenderCloser to provide a confluence compatible
-// interface for sending messages over a network transport. SenderTransform adds
+// TransformSender wraps transport.StreamSenderCloser to provide a confluence compatible
+// interface for sending messages over a network transport. TransformSender adds
 // a transform function to the Sender. This is particularly useful in cases
 // where network message types are different from the message types used by the
 // rest of a program.
-type SenderTransform[I Value, M transport.Message] struct {
+type TransformSender[I Value, M transport.Message] struct {
 	Sender transport.StreamSenderCloser[M]
 	TransformFunc[I, M]
 	UnarySink[I]
 }
 
 // Flow implements the Flow interface.
-func (s *SenderTransform[I, M]) Flow(ctx signal.Context, opts ...Option) {
+func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	ctx.Go(func() error {
 		var err error

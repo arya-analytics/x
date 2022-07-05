@@ -37,14 +37,14 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
 	}, fo.Signal...)
 }
 
-type ReceiverTransform[I Value, M transport.Message] struct {
+type TransformReceiver[I Value, M transport.Message] struct {
 	Receiver transport.StreamReceiver[M]
 	AbstractUnarySource[I]
 	TransformFunc[M, I]
 }
 
 // Flow implements Flow.
-func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...Option) {
+func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(r)
 	ctx.Go(func() error {

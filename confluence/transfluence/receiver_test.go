@@ -72,14 +72,14 @@ var _ = Describe("Receiver", func() {
 			Expect(ok).To(BeFalse())
 		})
 	})
-	Describe("ReceiverTransform", func() {
+	Describe("TransformReceiver", func() {
 		It("It should transform values before sending them through the channel", func() {
 			var receivedValues []int
 			receiverStream := confluence.NewStream[int](10)
 			stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
-				receiver := &transfluence.ReceiverTransform[int, int]{}
+				receiver := &transfluence.TransformReceiver[int, int]{}
 				receiver.Receiver = server
 				receiver.OutTo(receiverStream)
 				receiver.ApplyTransform = func(ctx signal.Context, v int) (int, bool, error) {
