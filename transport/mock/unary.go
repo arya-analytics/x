@@ -18,7 +18,7 @@ type Unary[I, O transport.Message] struct {
 func (t *Unary[I, O]) Send(ctx context.Context, target address.Address, req I) (res O, err error) {
 	route, ok := t.Network.UnaryRoutes[target]
 	if !ok || route.Handler == nil {
-		return res, transport.WrapNotFoundWithTarget(target)
+		return res, address.TargetNotFound(target)
 	}
 	res, err = route.Handler(ctx, req)
 	t.Network.appendEntry(t.Address, target, req, res, err)

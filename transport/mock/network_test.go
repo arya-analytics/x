@@ -22,7 +22,7 @@ var _ = Describe("Network", func() {
 		})
 	})
 	Describe("RouteStream", func() {
-		It("Should correctly add a new stream route", func() {
+		It("Should correctly add a new serverStream route", func() {
 			t1 := net.RouteStream("localhost:0", 1)
 			Expect(t1.String()).To(Equal("mock.Stream{} at localhost:0"))
 		})

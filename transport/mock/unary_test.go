@@ -2,7 +2,7 @@ package mock_test
 
 import (
 	"context"
-	"github.com/arya-analytics/x/transport"
+	"github.com/arya-analytics/x/address"
 	tmock "github.com/arya-analytics/x/transport/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +27,7 @@ var _ = Describe("Unary", func() {
 			return in + 1, nil
 		})
 		res, err := t1.Send(ctx, "localhost:1", 1)
-		Expect(err).To(MatchError(transport.TargetNotFound))
+		Expect(err).To(MatchError(address.NotFound))
 		Expect(res).To(Equal(0))
 	})
 })

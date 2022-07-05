@@ -7,6 +7,11 @@ import (
 	"github.com/arya-analytics/x/transport"
 )
 
+type message[V transport.Message] struct {
+	value V
+	error error
+}
+
 // Stream is a mock implementation of the transport.Stream interface.
 type Stream[I, O transport.Message] struct {
 	Address    address.Address
@@ -22,26 +27,24 @@ func (s *Stream[I, O]) Stream(
 ) (transport.StreamClient[I, O], error) {
 	route, ok := s.Network.StreamRoutes[target]
 	if !ok || route.Handler == nil {
-		return nil, transport.WrapNotFoundWithTarget(target)
+		return nil, address.TargetNotFound(target)
 	}
-	req, res := make(chan I, s.BufferSize), make(chan O, route.BufferSize)
-	reqErrC, resErrC := make(chan error, 1), make(chan error, 1)
-	server := &StreamServer[I, O]{
-		requests:   req,
-		responses:  res,
-		clientErrC: reqErrC,
-		serverErrC: resErrC,
-	}
+	req, res := make(chan message[I], s.BufferSize), make(chan message[O], route.BufferSize)
+	server := &serverStream[I, O]{ctx: ctx, requests: req, responses: res}
+	serverClosed := make(chan struct{})
 	go func() {
-		if err := route.Handler(ctx, server); err != nil {
-			server.serverErrC <- err
+		err := route.Handler(ctx, server)
+		if err == nil {
+			err = transport.EOF
 		}
+		res <- message[O]{error: err}
+		close(serverClosed)
 	}()
-	return &StreamClient[I, O]{
-		requests:   req,
-		responses:  res,
-		clientErrC: reqErrC,
-		serverErrC: resErrC,
+	return &clientStream[I, O]{
+		ctx:          ctx,
+		requests:     req,
+		responses:    res,
+		serverClosed: serverClosed,
 	}, nil
 }
 
@@ -56,58 +59,124 @@ func (s *Stream[I, O]) Handle(handler func(
 	s.Handler = handler
 }
 
-// StreamClient is a mock implementation of the transport.StreamClient interface.
-type StreamClient[I, O transport.Message] struct {
-	requests   chan I
-	responses  chan O
-	serverErrC <-chan error
-	clientErrC chan<- error
+type serverStream[I, O transport.Message] struct {
+	// ctx is the context the serverStream was started with. Yes, Yes! I know this is a bad
+	// practice, but in this case we're essentially using it as a data container,
+	// and we have a very good grasp on how it's used.
+	ctx       context.Context
+	requests  <-chan message[I]
+	responses chan<- message[O]
+	// inboundFatalErr indicates the request direction of the serverStream
+	// closed. This should be a transport.EOF error if the serverStream closed successfully,
+	// a context error if ctx was canceled, and any other error if the serverStream died
+	// at the hands of the caller.
+	inboundFatalErr  error
+	outboundFatalErr error
 }
 
-// Send implements the transport.StreamClient interface.
-func (s *StreamClient[I, O]) Send(req I) error { s.requests <- req; return nil }
+// Send implements the transport.StreamSender interface.
+func (s *serverStream[I, O]) Send(res O) error {
+	// If outboundFatalErr is not nil, it means we've reached the end of the serverStream
+	// and should continue returning the error until the client no longer calls
+	// Send anymore.
+	if s.outboundFatalErr != nil {
+		return s.outboundFatalErr
+	}
+	if s.ctx.Err() != nil {
+		s.outboundFatalErr = s.ctx.Err()
+		return s.outboundFatalErr
+	}
+	select {
+	case <-s.ctx.Done():
+		s.outboundFatalErr = s.ctx.Err()
+		return s.outboundFatalErr
+	case s.responses <- message[O]{value: res}:
+		return nil
+	}
+}
 
 // Receive implements the transport.StreamClient interface.
-func (s *StreamClient[I, O]) Receive() (resp O, err error) {
+func (s *serverStream[I, O]) Receive() (req I, err error) {
+	// If inboundFatalErr is not nil, it means we've reached the end of the serverStream (whether
+	// successfully or not) and should continue returning the error until the client
+	// no longer calls Receive anymore.
+	if s.inboundFatalErr != nil {
+		return req, s.inboundFatalErr
+	}
 	select {
-	case resp = <-s.responses:
-		return resp, nil
-	case err = <-s.serverErrC:
-		return resp, err
+	case <-s.ctx.Done():
+		s.inboundFatalErr = s.ctx.Err()
+		return req, s.inboundFatalErr
+	case msg := <-s.requests:
+		// Any error message means the serverStream should die.
+		if msg.error != nil {
+			s.inboundFatalErr = msg.error
+		}
+		return msg.value, msg.error
 	}
 }
 
-// CloseSend implements the transport.StreamClient interface.
-func (s *StreamClient[I, O]) CloseSend() error {
-	s.clientErrC <- transport.EOF
-	close(s.requests)
-	return nil
+type clientStream[I, O transport.Message] struct {
+	// ctx is the context the serverStream was started with. Yes, Yes! I know this is a bad
+	// practice, but in this case we're essentially using it as a data container,
+	// and we have a very good grasp on how it's used.
+	ctx          context.Context
+	requests     chan<- message[I]
+	responses    <-chan message[O]
+	serverClosed chan struct{}
+	// inboundFatalErr indicates the request direction of the serverStream
+	// closed. This should be a transport.EOF error if the serverStream closed successfully,
+	// a context error if ctx was canceled, and any other error if the serverStream died
+	// at the hands of the caller.
+	inboundFatalErr  error
+	outboundFatalErr error
 }
 
-// StreamServer implements the transport.StreamServer interface.
-type StreamServer[I, O transport.Message] struct {
-	requests   chan I
-	responses  chan O
-	serverErrC chan<- error
-	clientErrC <-chan error
-}
-
-// Receive implements the transport.StreamServer interface.
-func (s *StreamServer[I, O]) Receive() (req I, err error) {
+func (c *clientStream[I, O]) Send(req I) error {
+	if c.outboundFatalErr != nil {
+		return c.outboundFatalErr
+	}
+	if c.ctx.Err() != nil {
+		c.outboundFatalErr = c.ctx.Err()
+		return c.outboundFatalErr
+	}
 	select {
-	case req = <-s.requests:
-		return req, nil
-	case err = <-s.clientErrC:
-		return req, err
+	case <-c.serverClosed:
+		c.outboundFatalErr = transport.EOF
+		return c.outboundFatalErr
+	case <-c.ctx.Done():
+		c.outboundFatalErr = c.ctx.Err()
+		return c.outboundFatalErr
+	case c.requests <- message[I]{value: req}:
+		return nil
 	}
 }
 
-// Send implements the transport.StreamServer interface.
-func (s *StreamServer[I, O]) Send(res O) error { s.responses <- res; return nil }
+func (c *clientStream[I, O]) Receive() (res O, err error) {
+	if c.inboundFatalErr != nil {
+		return res, c.inboundFatalErr
+	}
+	select {
+	case <-c.ctx.Done():
+		c.inboundFatalErr = c.ctx.Err()
+		return res, c.inboundFatalErr
+	case msg := <-c.responses:
+		if msg.error != nil {
+			c.inboundFatalErr = msg.error
+			if err := c.CloseSend(); err != nil {
+				return res, err
+			}
+		}
+		return msg.value, msg.error
+	}
+}
 
-// CloseSend implements the transport.StreamServer interface.
-func (s *StreamServer[I, O]) CloseSend() error {
-	s.serverErrC <- transport.EOF
-	close(s.responses)
+// CloseSend implements the transport.StreamCloser interface.
+func (c *clientStream[I, O]) CloseSend() error {
+	if c.outboundFatalErr != nil {
+		return nil
+	}
+	c.outboundFatalErr = transport.EOF
+	c.requests <- message[I]{error: c.outboundFatalErr}
 	return nil
 }
