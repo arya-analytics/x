@@ -21,11 +21,11 @@ var _ = Describe("Sender", func() {
 		stream = net.RouteStream("", 10)
 	})
 	Describe("Sender", func() {
-		var (
-			receiverStream = confluence.NewStream[int](0)
-			senderStream   = confluence.NewStream[int](0)
-		)
 		It("Should operate correctly", func() {
+			var (
+				receiverStream = confluence.NewStream[int](0)
+				senderStream   = confluence.NewStream[int](0)
+			)
 			stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
@@ -41,12 +41,45 @@ var _ = Describe("Sender", func() {
 			sender := &transfluence.Sender[int]{Sender: client}
 			sender.InFrom(senderStream)
 			sender.Flow(sCtx)
-
 			senderStream.Inlet() <- 1
 			v := <-receiverStream.Outlet()
 			Expect(v).To(Equal(1))
 			senderStream.Inlet() <- 2
 			v = <-receiverStream.Outlet()
+			cancel()
+			Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+			_, ok := <-receiverStream.Outlet()
+			Expect(ok).To(BeFalse())
+		})
+	})
+	Describe("SenderTransform", func() {
+		It("Should transform values before sending them", func() {
+			var (
+				receiverStream = confluence.NewStream[int](0)
+				senderStream   = confluence.NewStream[int](0)
+			)
+			stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				receiver := &transfluence.Receiver[int]{}
+				receiver.Receiver = server
+				receiver.OutTo(receiverStream)
+				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
+				return sCtx.WaitOnAll()
+			})
+			sCtx, cancel := signal.WithCancel(context.TODO())
+			client, err := stream.Stream(sCtx, "localhost:0")
+			Expect(err).ToNot(HaveOccurred())
+			sender := &transfluence.SenderTransform[int, int]{}
+			sender.Sender = client
+			sender.ApplyTransform = func(ctx signal.Context, v int) (int, bool, error) {
+				return v * 2, true, nil
+			}
+			sender.InFrom(senderStream)
+			sender.Flow(sCtx)
+			senderStream.Inlet() <- 1
+			v := <-receiverStream.Outlet()
+			Expect(v).To(Equal(2))
 			cancel()
 			Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
 			_, ok := <-receiverStream.Outlet()
