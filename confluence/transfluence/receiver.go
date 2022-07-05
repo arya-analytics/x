@@ -19,26 +19,21 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(r)
 	ctx.Go(func() error {
-		var err error
-	o:
 		for {
 			select {
 			case <-ctx.Done():
-				err = errors.CombineErrors(err, ctx.Err())
-				break o
+				return ctx.Err()
 			default:
-				res, rErr := r.Receiver.Receive()
+				msg, rErr := r.Receiver.Receive()
 				if errors.Is(rErr, transport.EOF) {
-					break o
+					return nil
 				}
 				if rErr != nil {
-					err = rErr
-					break o
+					return rErr
 				}
-				r.AbstractUnarySource.Out.Inlet() <- res
+				r.Out.Inlet() <- msg
 			}
 		}
-		return err
 	}, fo.Signal...)
 }
 
@@ -53,21 +48,18 @@ func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(r)
 	ctx.Go(func() error {
-		var err error
 	o:
 		for {
 			select {
 			case <-ctx.Done():
-				err = errors.CombineErrors(err, ctx.Err())
-				break o
+				return ctx.Err()
 			default:
-				res, rErr := r.Receiver.Receive()
-				if errors.Is(rErr, transport.EOF) {
-					break o
+				res, err := r.Receiver.Receive()
+				if errors.Is(err, transport.EOF) {
+					return nil
 				}
-				if rErr != nil {
-					err = err
-					break o
+				if err != nil {
+					return err
 				}
 				tRes, ok, err := r.ApplyTransform(ctx, res)
 				if !ok {
@@ -76,9 +68,8 @@ func (r *ReceiverTransform[I, M]) Flow(ctx signal.Context, opts ...Option) {
 				if err != nil {
 					return err
 				}
-				r.AbstractUnarySource.Out.Inlet() <- tRes
+				r.Out.Inlet() <- tRes
 			}
 		}
-		return err
 	}, fo.Signal...)
 }
