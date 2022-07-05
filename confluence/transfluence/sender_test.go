@@ -8,6 +8,7 @@ import (
 	"github.com/arya-analytics/x/signal"
 	"github.com/arya-analytics/x/transport"
 	tmock "github.com/arya-analytics/x/transport/mock"
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -28,27 +29,29 @@ var _ = Describe("Sender", func() {
 		net = tmock.NewNetwork[int, int]()
 	})
 	Context("Single Stream", func() {
-		var stream transport.Stream[int, int]
+		var (
+			streamTransport transport.Stream[int, int]
+			receiverStream  confluence.Stream[int]
+			senderStream    confluence.Stream[int]
+		)
 		BeforeEach(func() {
-			stream = net.RouteStream("", 10)
+			streamTransport = net.RouteStream("", 10)
+			receiverStream = confluence.NewStream[int](0)
+			senderStream = confluence.NewStream[int](0)
+			streamTransport.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				receiver := &transfluence.Receiver[int]{}
+				receiver.Receiver = server
+				receiver.OutTo(receiverStream)
+				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
+				return sCtx.WaitOnAll()
+			})
 		})
 		Describe("Sender", func() {
 			It("Should operate correctly", func() {
-				var (
-					receiverStream = confluence.NewStream[int](0)
-					senderStream   = confluence.NewStream[int](0)
-				)
-				stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
-					sCtx, cancel := signal.WithCancel(ctx)
-					defer cancel()
-					receiver := &transfluence.Receiver[int]{}
-					receiver.Receiver = server
-					receiver.OutTo(receiverStream)
-					receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-					return sCtx.WaitOnAll()
-				})
 				sCtx, cancel := signal.WithCancel(context.TODO())
-				client, err := stream.Stream(sCtx, "localhost:0")
+				client, err := streamTransport.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &transfluence.Sender[int]{Sender: client}
 				sender.InFrom(senderStream)
@@ -66,21 +69,8 @@ var _ = Describe("Sender", func() {
 		})
 		Describe("TransformSender", func() {
 			It("Should transform values before sending them", func() {
-				var (
-					receiverStream = confluence.NewStream[int](0)
-					senderStream   = confluence.NewStream[int](0)
-				)
-				stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
-					sCtx, cancel := signal.WithCancel(ctx)
-					defer cancel()
-					receiver := &transfluence.Receiver[int]{}
-					receiver.Receiver = server
-					receiver.OutTo(receiverStream)
-					receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-					return sCtx.WaitOnAll()
-				})
 				sCtx, cancel := signal.WithCancel(context.TODO())
-				client, err := stream.Stream(sCtx, "localhost:0")
+				client, err := streamTransport.Stream(sCtx, "localhost:0")
 				Expect(err).ToNot(HaveOccurred())
 				sender := &transfluence.TransformSender[int, int]{}
 				sender.Sender = client
@@ -97,8 +87,22 @@ var _ = Describe("Sender", func() {
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
+			It("Should exit when the transform returns an error", func() {
+				sCtx, cancel := signal.WithCancel(context.TODO())
+				defer cancel()
+				client, err := streamTransport.Stream(sCtx, "localhost:0")
+				Expect(err).ToNot(HaveOccurred())
+				sender := &transfluence.TransformSender[int, int]{}
+				sender.Sender = client
+				sender.ApplyTransform = func(ctx signal.Context, v int) (int, bool, error) {
+					return v * 2, true, errors.New("error")
+				}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 1
+				Expect(sCtx.WaitOnAll()).To(MatchError("error"))
+			})
 		})
-
 	})
 	Context("Multiple Streams", func() {
 		var (
@@ -148,25 +152,58 @@ var _ = Describe("Sender", func() {
 				senderStream.Close()
 				Expect(sCtx.WaitOnAll()).To(Succeed())
 			})
+			It("Should exit when the context is canceled", func() {
+				sender := &transfluence.MultiSender[int]{}
+				sender.Senders = clientStreamsToSlice(clientStreams)
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 2
+				cancel()
+				Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+			})
 		})
 		Describe("SwitchSender", func() {
 			It("Should route values to the correct stream", func() {
 				sender := &transfluence.SwitchSender[int]{}
 				sender.Senders = clientStreams
 				sender.ApplySwitch = func(ctx signal.Context, v int) (address.Address, bool, error) {
-					addr := address.NewF("localhost:%v", v)
+					addr := address.Newf("localhost:%v", v)
 					return addr, true, nil
 				}
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
 				for i := 1; i < nStreams+1; i++ {
 					senderStream.Inlet() <- i
-					addr := address.NewF("localhost:%v", i)
+					addr := address.Newf("localhost:%v", i)
 					v := <-receiverStreams[addr].Outlet()
 					Expect(v).To(Equal(i))
 				}
 				senderStream.Close()
 				Expect(sCtx.WaitOnAll()).To(Succeed())
+			})
+			It("Should exit when the context is canceled", func() {
+				sender := &transfluence.SwitchSender[int]{}
+				sender.Senders = clientStreams
+				sender.ApplySwitch = func(ctx signal.Context, v int) (address.Address, bool, error) {
+					addr := address.Newf("localhost:%v", v)
+					return addr, true, nil
+				}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 1
+				cancel()
+				Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+			})
+			It("Should exit when the switch returns an error", func() {
+				sender := &transfluence.SwitchSender[int]{}
+				sender.Senders = clientStreams
+				sender.ApplySwitch = func(ctx signal.Context, v int) (address.Address, bool, error) {
+					return "", false, errors.New("error")
+				}
+				sender.InFrom(senderStream)
+				sender.Flow(sCtx)
+				senderStream.Inlet() <- 1
+				Expect(sCtx.WaitOnAll()).To(HaveOccurred())
 			})
 		})
 		Describe("BatchSwitchSender", func() {
@@ -174,9 +211,9 @@ var _ = Describe("Sender", func() {
 				sender := &transfluence.BatchSwitchSender[int, int]{}
 				sender.Senders = clientStreams
 				sender.ApplySwitch = func(ctx signal.Context, v int, o map[address.Address]int) error {
-					addr := address.NewF("localhost:%v", v)
+					addr := address.Newf("localhost:%v", v)
 					o[addr] = v
-					addr2 := address.NewF("localhost:%v", v+1)
+					addr2 := address.Newf("localhost:%v", v+1)
 					o[addr2] = v + 1
 					return nil
 				}
@@ -188,6 +225,31 @@ var _ = Describe("Sender", func() {
 				senderStream.Close()
 				Expect(sCtx.WaitOnAll()).To(Succeed())
 			})
+		})
+		It("Should exit when the context is canceled", func() {
+			sender := &transfluence.BatchSwitchSender[int, int]{}
+			sender.Senders = clientStreams
+			sender.ApplySwitch = func(ctx signal.Context, v int, o map[address.Address]int) error {
+				addr := address.Newf("localhost:%v", v)
+				o[addr] = v
+				return nil
+			}
+			sender.InFrom(senderStream)
+			sender.Flow(sCtx)
+			senderStream.Inlet() <- 2
+			cancel()
+			Expect(sCtx.WaitOnAll()).To(MatchError(context.Canceled))
+		})
+		It("Should exit when the switch returns an error", func() {
+			sender := &transfluence.BatchSwitchSender[int, int]{}
+			sender.Senders = clientStreams
+			sender.ApplySwitch = func(ctx signal.Context, v int, o map[address.Address]int) error {
+				return errors.New("error")
+			}
+			sender.InFrom(senderStream)
+			sender.Flow(sCtx)
+			senderStream.Inlet() <- 2
+			Expect(sCtx.WaitOnAll()).To(MatchError("error"))
 		})
 	})
 })

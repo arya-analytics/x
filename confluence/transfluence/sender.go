@@ -152,6 +152,10 @@ func (s senderMap[M]) close() error {
 	return c.Error()
 }
 
+// SwitchSender wraps a map of transport.StreamSenderCloser to provide a confluence
+// compatible interface for sending messages over a network transport. SwitchSender
+// receives a value, resolves its target address through a SwitchFunc, and sends it
+// on its merry way.
 type SwitchSender[M transport.Message] struct {
 	Senders senderMap[M]
 	SwitchFunc[M]
@@ -190,6 +194,10 @@ func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
 	}, fo.Signal...)
 }
 
+// BatchSwitchSender wraps a map of transport.StreamSenderCloser to provide a confluence
+// compatible interface for sending messages over a network transport. BatchSwitchSender
+// receives a batch of values, resolves their target addresses through a BatchSwitchFunc,
+// and sends them on their merry way.
 type BatchSwitchSender[I, O transport.Message] struct {
 	Senders senderMap[O]
 	BatchSwitchFunc[I, O]
