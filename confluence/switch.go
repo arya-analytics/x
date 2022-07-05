@@ -38,10 +38,10 @@ func (sw *Switch[V]) _switch(ctx signal.Context, v V) error {
 }
 
 type BatchSwitchFunc[I, O Value] struct {
-	// Apply resolves the address of the input value. The caller should bind
+	// ApplySwitch resolves the address of the input value. The caller should bind
 	// output addresses and values to the provided out map. If error is non-nil,
 	// the switch terminates and returns the error as fatal to the context.
-	Apply func(ctx signal.Context, batch I, out map[address.Address]O) error
+	ApplySwitch func(ctx signal.Context, batch I, out map[address.Address]O) error
 }
 
 // BatchSwitch is a Segment that reads a batch of values from an inlet,
@@ -66,7 +66,7 @@ func (bsw *BatchSwitch[I, O]) Flow(ctx signal.Context, opts ...Option) {
 }
 
 func (bsw *BatchSwitch[I, O]) _switch(ctx signal.Context, v I) error {
-	if err := bsw.BatchSwitchFunc.Apply(ctx, v, bsw.addrMap); err != nil {
+	if err := bsw.BatchSwitchFunc.ApplySwitch(ctx, v, bsw.addrMap); err != nil {
 		return err
 	}
 	for target, batch := range bsw.addrMap {

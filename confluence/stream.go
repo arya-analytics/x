@@ -61,12 +61,6 @@ func (i *inletImpl[V]) Close() {
 	i.once.Do(func() { close(i.values) })
 }
 
-func closeInlets[V Value](inlets []Inlet[V]) {
-	for _, in := range inlets {
-		in.Close()
-	}
-}
-
 type outletImpl[V Value] struct {
 	addr   address.Address
 	values <-chan V
