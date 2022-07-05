@@ -26,17 +26,13 @@ var _ = Describe("Receiver", func() {
 			receiverStream := confluence.NewStream[int](10)
 			stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
-				var err error
-				defer func() {
-					cancel()
-					err = sCtx.WaitOnAll()
-				}()
+				defer cancel()
 				receiver := &transfluence.Receiver[int]{Receiver: server}
 				receiver.OutTo(receiverStream)
 				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
 				By("Receiving values from the input stream")
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
-				return err
+				return sCtx.WaitOnAll()
 			})
 			client, err := stream.Stream(context.TODO(), "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
@@ -82,11 +78,7 @@ var _ = Describe("Receiver", func() {
 			receiverStream := confluence.NewStream[int](10)
 			stream.Handle(func(ctx context.Context, server transport.StreamServer[int, int]) error {
 				sCtx, cancel := signal.WithCancel(ctx)
-				var err error
-				defer func() {
-					cancel()
-					err = sCtx.WaitOnAll()
-				}()
+				defer cancel()
 				receiver := &transfluence.ReceiverTransform[int, int]{}
 				receiver.Receiver = server
 				receiver.OutTo(receiverStream)
@@ -96,7 +88,7 @@ var _ = Describe("Receiver", func() {
 				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
 				By("Receiving values from the input stream")
 				receivedValues = append(receivedValues, <-receiverStream.Outlet())
-				return err
+				return sCtx.WaitOnAll()
 			})
 			client, err := stream.Stream(context.TODO(), "localhost:0")
 			Expect(err).ToNot(HaveOccurred())
