@@ -23,7 +23,8 @@ func (ams *MultiSink[V]) Flow(ctx signal.Context, opts ...Option) {
 func (ams *MultiSink[V]) GoRangeEach(
 	ctx signal.Context,
 	f func(signal.Context, V) error,
-	opts ...signal.GoOption) {
+	opts ...signal.GoOption,
+) {
 	var channels []<-chan V
 	for _, outlet := range ams.In {
 		channels = append(channels, outlet.Outlet())
