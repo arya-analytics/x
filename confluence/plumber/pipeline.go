@@ -3,12 +3,29 @@ package plumber
 import (
 	"github.com/arya-analytics/x/address"
 	. "github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
 )
 
 type Pipeline struct {
 	Sources map[address.Address]Flow
 	Sinks   map[address.Address]Flow
+}
+
+func (p *Pipeline) Flow(ctx signal.Context, opts ...Option) {
+	for _, s := range p.Sources {
+		s.Flow(ctx, opts...)
+	}
+	for _, s := range p.Sinks {
+		s.Flow(ctx, opts...)
+	}
+}
+
+func New() *Pipeline {
+	return &Pipeline{
+		Sources: make(map[address.Address]Flow),
+		Sinks:   make(map[address.Address]Flow),
+	}
 }
 
 func SetSource[V Value](p *Pipeline, addr address.Address, source Source[V]) {
@@ -41,7 +58,7 @@ func GetSink[V Value](p *Pipeline, addr address.Address) (Sink[V], error) {
 	if !ok {
 		return nil, notFound(addr)
 	}
-	s, ok := rs.(Sink[V]);
+	s, ok := rs.(Sink[V])
 	if !ok {
 		return nil, wrongType(addr, s, rs)
 	}
@@ -53,7 +70,7 @@ func GetSegment[I, O Value](p *Pipeline, addr address.Address) (Segment[I, O], e
 	if err != nil {
 		return nil, err
 	}
-	s, ok := rs.(Segment[I, O]);
+	s, ok := rs.(Segment[I, O])
 	if !ok {
 		return nil, wrongType(addr, s, rs)
 	}

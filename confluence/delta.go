@@ -18,14 +18,22 @@ type Delta[I, O Value] struct {
 type DeltaMultiplier[V Value] struct{ Delta[V, V] }
 
 // Flow implements the Segment interface.
-func (d *DeltaMultiplier[V]) Flow(ctx signal.Context) { d.GoRangeEach(ctx, d.SendToEach) }
+func (d *DeltaMultiplier[V]) Flow(ctx signal.Context, opts ...Option) {
+	o := NewOptions(opts)
+	o.AttachInletCloser(d)
+	d.GoRangeEach(ctx, d.SendToEach, o.Signal...)
+}
 
 // DeltaSelector reads a value from an input stream and writes the value to
 // the first output stream that accepts it.
 type DeltaSelector[V Value] struct{ Delta[V, V] }
 
 // Flow implements the Segment interface.
-func (d *DeltaSelector[V]) Flow(ctx signal.Context) { d.GoRangeEach(ctx, d.SendToAvailable) }
+func (d *DeltaSelector[V]) Flow(ctx signal.Context, opts ...Option) {
+	o := NewOptions(opts)
+	o.AttachInletCloser(d)
+	d.GoRangeEach(ctx, d.SendToAvailable, o.Signal...)
+}
 
 // DeltaTransformSelector reads a value from an input stream, performs a transformation
 // on it, and writes the transformed value to the first output stream that accepts it.

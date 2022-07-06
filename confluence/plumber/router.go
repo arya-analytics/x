@@ -94,7 +94,7 @@ func (m *MultiRouter[V]) linear(p *Pipeline) error {
 }
 
 func (m MultiRouter[V]) weave(p *Pipeline) error {
-	return m.iterAddresses(func(from address.Address, to address.Address) error {
+	return m.iterAddresses(func(from, to address.Address) error {
 		return UnaryRouter[V]{from, to, m.Capacity}.Route(p)
 	})
 }

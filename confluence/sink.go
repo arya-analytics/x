@@ -53,5 +53,4 @@ func (us *UnarySink[V]) Flow(ctx signal.Context, opts ...Option) {
 
 func (us *UnarySink[V]) GoRange(ctx signal.Context, f func(signal.Context, V) error, opts ...signal.GoOption) {
 	signal.GoRange(ctx, us.In.Outlet(), f, opts...)
-
 }
