@@ -15,10 +15,9 @@ func NewInlet[V Value](ch chan<- V) Inlet[V] { return &inletImpl[V]{values: ch} 
 func NewOutlet[V Value](ch <-chan V) Outlet[V] { return &outletImpl[V]{values: ch} }
 
 type streamImpl[V Value] struct {
-	inletAddr  address.Address
-	outletAddr address.Address
-	values     chan V
-	once       sync.Once
+	inletAddr, outletAddr address.Address
+	values                chan V
+	once                  sync.Once
 }
 
 // Inlet implements Stream.
