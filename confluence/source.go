@@ -24,23 +24,6 @@ func (ams *AbstractMultiSource[V]) SendToEach(ctx signal.Context, v V) error {
 	return nil
 }
 
-// SendToAvailable sends the provided value to the first Inlet in the Source that
-// can accept it. NOTE: This is implementation is quite crude and probably buggy.
-// be careful when using.
-func (ams *AbstractMultiSource[V]) SendToAvailable(ctx signal.Context, v V) error {
-	for {
-		for _, inlet := range ams.Out {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case inlet.Inlet() <- v:
-				return nil
-			default:
-			}
-		}
-	}
-}
-
 // CloseInlets implements the InletCloser interface.
 func (ams *AbstractMultiSource[V]) CloseInlets() {
 	for _, inlet := range ams.Out {

@@ -36,8 +36,9 @@ func (s *Segment[I, O]) RouteInletTo(targets ...address.Address) error {
 	return nil
 }
 
-func (s *Segment[I, O]) RouteOutletFrom(from ...address.Address) error {
-	for _, addr := range from {
+func (s *Segment[I, O]) RouteOutletFrom(targets ...address.Address) error {
+	s.RouteOutletsFrom = targets
+	for _, addr := range targets {
 		if _, err := GetSource[I](s.Pipeline, addr); err != nil {
 			return err
 		}
@@ -51,30 +52,34 @@ func (s *Segment[I, O]) Flow(ctx signal.Context, opts ...cfs.Option) {
 }
 
 type Pipeline struct {
-	Sources map[address.Address]Entry
-	Sinks   map[address.Address]Entry
+	Sources map[address.Address]entry
+	Sinks   map[address.Address]entry
 }
 
-type Entry struct {
-	Flow    cfs.Flow
-	Options []cfs.Option
+type entry struct {
+	flow    cfs.Flow
+	options []cfs.Option
+}
+
+func (e entry) Flow(ctx signal.Context, opts ...cfs.Option) {
+	e.flow.Flow(ctx, append(e.options, opts...)...)
 }
 
 func (p *Pipeline) Flow(ctx signal.Context, opts ...cfs.Option) {
-	for _, entry := range p.Sources {
-		entry.Flow.Flow(ctx, append(entry.Options, opts...)...)
+	for _, e := range p.Sources {
+		e.Flow(ctx, opts...)
 	}
-	for addr, entry := range p.Sinks {
+	for addr, e := range p.Sinks {
 		if _, ok := p.Sources[addr]; !ok {
-			entry.Flow.Flow(ctx, append(entry.Options, opts...)...)
+			e.Flow(ctx, opts...)
 		}
 	}
 }
 
 func New() *Pipeline {
 	return &Pipeline{
-		Sources: make(map[address.Address]Entry),
-		Sinks:   make(map[address.Address]Entry),
+		Sources: make(map[address.Address]entry),
+		Sinks:   make(map[address.Address]entry),
 	}
 }
 
@@ -84,7 +89,7 @@ func SetSource[V cfs.Value](
 	source cfs.Source[V],
 	opts ...cfs.Option,
 ) {
-	p.Sources[addr] = Entry{Flow: source, Options: opts}
+	p.Sources[addr] = entry{flow: source, options: opts}
 }
 
 func SetSegment[I, O cfs.Value](
@@ -103,7 +108,7 @@ func SetSink[V cfs.Value](
 	sink cfs.Sink[V],
 	opts ...cfs.Option,
 ) {
-	p.Sinks[addr] = Entry{Flow: sink, Options: opts}
+	p.Sinks[addr] = entry{flow: sink, options: opts}
 }
 
 func GetSource[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Source[V], error) {
@@ -111,7 +116,7 @@ func GetSource[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Source[V], e
 	if !ok {
 		return nil, notFound(addr)
 	}
-	s, ok := rs.Flow.(cfs.Source[V])
+	s, ok := rs.flow.(cfs.Source[V])
 	if !ok {
 		return nil, wrongType(addr, s, rs)
 	}
@@ -123,7 +128,7 @@ func GetSink[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Sink[V], error
 	if !ok {
 		return nil, notFound(addr)
 	}
-	s, ok := rs.Flow.(cfs.Sink[V])
+	s, ok := rs.flow.(cfs.Sink[V])
 	if !ok {
 		return nil, wrongType(addr, s, rs)
 	}

@@ -1,6 +1,8 @@
 package confluence
 
-import "github.com/arya-analytics/x/signal"
+import (
+	"github.com/arya-analytics/x/signal"
+)
 
 // AbstractLinear is an abstract Segment that reads values from a single Inlet and
 // pipes them to a single Outlet. AbstractLinear does not implement the Flow method,
@@ -21,7 +23,7 @@ type LinearTransform[I, O Value] struct {
 func (l *LinearTransform[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachInletCloser(l)
-	l.GoRange(ctx, l.transform, NewOptions(opts).Signal...)
+	l.GoRange(ctx, l.transform, o.Signal...)
 }
 
 func (l *LinearTransform[I, O]) transform(ctx signal.Context, i I) error {
