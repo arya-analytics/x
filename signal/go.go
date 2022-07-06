@@ -25,7 +25,7 @@ func (c *core) Go(f func() error, opts ...GoOption) {
 	go func() {
 		defer c.runPostlude(o)
 		err := f()
-		c.fatal <- err
+		c.fatal.Inlet() <- err
 	}()
 }
 
@@ -103,6 +103,7 @@ func (c *core) runPrelude() (prevent bool) {
 		return true
 	}
 	c.numForked.Add(1)
+	c.fatal.Resize(int(c.numForked.Value()))
 	return false
 }
 

@@ -40,7 +40,7 @@ func (c *core) waitForNToExit(count int32, allowNil bool) error {
 		c.maybeStop()
 		return nil
 	}
-	for _err := range c.fatal {
+	for _err := range c.fatal.Outlet() {
 		if _err != nil {
 			numExited++
 			if moreSignificant(_err, err) {

@@ -16,7 +16,7 @@ var _ = Describe("Go", func() {
 			ctx, cancel := signal.WithCancel(context.Background())
 			defer cancel()
 			resV := make([]int, 2)
-			signal.GoRange(ctx, ch, func(v int) error {
+			signal.GoRange(ctx, ch, func(ctx signal.Context, v int) error {
 				resV[v] = v
 				return nil
 			})
@@ -31,7 +31,7 @@ var _ = Describe("Go", func() {
 			ctx, cancel := signal.WithCancel(context.Background())
 			defer cancel()
 			resV := make([]int, 2)
-			signal.GoRange(ctx, ch, func(v int) error {
+			signal.GoRange(ctx, ch, func(ctx signal.Context, v int) error {
 				if v == 1 {
 					return errors.New("error")
 				}
@@ -46,7 +46,7 @@ var _ = Describe("Go", func() {
 			ch := make(chan int, 3)
 			ctx, cancel := signal.WithCancel(context.Background())
 			resV := make(chan int, 2)
-			signal.GoRange(ctx, ch, func(v int) error {
+			signal.GoRange(ctx, ch, func(ctx signal.Context, v int) error {
 				resV <- v
 				return nil
 			})
@@ -63,7 +63,7 @@ var _ = Describe("Go", func() {
 			ctx, cancel := signal.WithTimeout(context.Background(), 1250*time.Microsecond)
 			defer cancel()
 			count := 0
-			signal.GoTick(ctx, 500*time.Microsecond, func(t time.Time) error {
+			signal.GoTick(ctx, 500*time.Microsecond, func(ctx signal.Context, t time.Time) error {
 				count++
 				return nil
 			})

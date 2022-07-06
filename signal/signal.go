@@ -3,6 +3,7 @@ package signal
 import (
 	"context"
 	atomicx "github.com/arya-analytics/x/atomic"
+	"github.com/arya-analytics/x/confluence/elasticstream"
 	"github.com/cockroachdb/errors"
 	"time"
 )
@@ -43,7 +44,7 @@ func newCore(ctx context.Context, opts ...Option) *core {
 		Context:   ctx,
 		options:   o,
 		transient: make(chan error, *o.transientCap),
-		fatal:     make(chan error, *o.fatalCap),
+		fatal:     elasticstream.New[error](),
 		stopped:   make(chan struct{}),
 		numForked: &atomicx.Int32Counter{},
 		numExited: &atomicx.Int32Counter{},
@@ -58,7 +59,7 @@ type core struct {
 	transient chan error
 	// fatal receives errors from goroutines that indicate a fatal error (i.e. the
 	// routine crashed).
-	fatal chan error
+	fatal *elasticstream.Stream[error]
 	// stopped is closed when all goroutines have exited.
 	stopped chan struct{}
 	// _numForked is the number of goroutines that have been started.

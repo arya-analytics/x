@@ -33,6 +33,21 @@ var _ = Describe("Conductor", func() {
 			cancel()
 			Expect(errors.Is(sig.WaitOnAll(), errors.New("error"))).To(BeTrue())
 		})
+		It("Should allow all goroutines to exit even if a wg method is not called", func() {
+			sig, cancel := signal.WithCancel(context.Background())
+			sig.Go(func() error {
+				<-sig.Done()
+				return sig.Err()
+			})
+			sig.Go(func() error {
+				<-sig.Done()
+				return sig.Err()
+			})
+			Expect(sig.NumRunning()).To(Equal(int32(2)))
+			cancel()
+			time.Sleep(1 * time.Millisecond)
+			Expect(sig.NumRunning()).To(Equal(int32(0)))
+		})
 	})
 	Describe("WaitOnAny", func() {
 		Context("allowNil is false", func() {
@@ -60,6 +75,5 @@ var _ = Describe("Conductor", func() {
 			})
 
 		})
-
 	})
 })
