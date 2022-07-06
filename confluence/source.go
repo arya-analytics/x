@@ -102,3 +102,7 @@ func (aas *AbstractAddressableSource[V]) CloseInlets() {
 		inlet.Close()
 	}
 }
+
+type EmptyFlow struct{}
+
+func (ef EmptyFlow) Flow(ctx signal.Context, opts ...Option) {}

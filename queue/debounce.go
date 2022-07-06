@@ -17,7 +17,7 @@ type DebounceConfig struct {
 // Debounce is a simple, goroutine safe queue that flushes data to a channel on a timer or queue size threshold.
 type Debounce[V confluence.Value] struct {
 	Config DebounceConfig
-	confluence.LinearTransform[[]V]
+	confluence.LinearTransform[[]V, []V]
 }
 
 // Flow starts the queue.
