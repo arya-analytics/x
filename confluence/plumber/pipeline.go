@@ -16,8 +16,10 @@ func (p *Pipeline) Flow(ctx signal.Context, opts ...Option) {
 	for _, s := range p.Sources {
 		s.Flow(ctx, opts...)
 	}
-	for _, s := range p.Sinks {
-		s.Flow(ctx, opts...)
+	for addr, s := range p.Sinks {
+		if _, ok := p.Sources[addr]; !ok {
+			s.Flow(ctx, opts...)
+		}
 	}
 }
 

@@ -3,6 +3,7 @@ package confluence
 import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
+	"golang.org/x/sync/errgroup"
 )
 
 type SwitchFunc[V Value] struct {
@@ -52,7 +53,6 @@ type BatchSwitch[I, O Value] struct {
 	BatchSwitchFunc[I, O]
 	MultiSink[I]
 	AbstractAddressableSource[O]
-	addrMap map[address.Address]O
 }
 
 // Flow implements the Flow interface, reading batches from the Outlet, resolving
@@ -61,19 +61,44 @@ type BatchSwitch[I, O Value] struct {
 func (bsw *BatchSwitch[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(bsw)
-	bsw.addrMap = make(map[address.Address]O)
-	bsw.GoRangeEach(ctx, bsw._switch, fo.Signal...)
+	ctx.Go(func() error {
+		wg := errgroup.Group{}
+		for _, inlet := range bsw.In {
+			_inlet := inlet
+			wg.Go(func() error {
+				addrMap := make(map[address.Address]O)
+				for {
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case v, ok := <-_inlet.Outlet():
+						if !ok {
+							return nil
+						}
+						if err := bsw._switch(ctx, v, addrMap); err != nil {
+							return err
+						}
+					}
+				}
+			})
+		}
+		return wg.Wait()
+	})
 }
 
-func (bsw *BatchSwitch[I, O]) _switch(ctx signal.Context, v I) error {
-	if err := bsw.BatchSwitchFunc.ApplySwitch(ctx, v, bsw.addrMap); err != nil {
+func (bsw *BatchSwitch[I, O]) _switch(
+	ctx signal.Context,
+	v I,
+	addrMap map[address.Address]O,
+) error {
+	if err := bsw.BatchSwitchFunc.ApplySwitch(ctx, v, addrMap); err != nil {
 		return err
 	}
-	for target, batch := range bsw.addrMap {
+	for target, batch := range addrMap {
 		if err := bsw.Send(target, batch); err != nil {
 			return err
 		}
-		delete(bsw.addrMap, target)
+		delete(addrMap, target)
 	}
 	return nil
 }
