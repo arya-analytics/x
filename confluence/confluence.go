@@ -83,8 +83,8 @@ type Value any
 // should be unaware of what occurs internally, and should only pass values through the
 // Inlet and Outlet interfaces.
 type Segment[I, O Value] interface {
-	Source[I]
-	Sink[O]
+	Sink[I]
+	Source[O]
 }
 
 // Flow is an entity that starts goroutines that process a stream of values.
