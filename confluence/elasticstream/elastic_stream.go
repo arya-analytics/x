@@ -2,7 +2,9 @@ package elasticstream
 
 import (
 	"github.com/arya-analytics/x/address"
+	atomicx "github.com/arya-analytics/x/atomic"
 	"github.com/arya-analytics/x/buffer"
+	"sync"
 )
 
 type Stream[V any] struct {
@@ -12,6 +14,8 @@ type Stream[V any] struct {
 	capacity, resize      chan int
 	size                  int
 	buffer                *buffer.RingQueue[V]
+	c                     *atomicx.Int32Counter
+	once                  sync.Once
 }
 
 func New[V any]() *Stream[V] {
@@ -23,6 +27,7 @@ func New[V any]() *Stream[V] {
 		resize:   make(chan int),
 		size:     1,
 		buffer:   buffer.NewRingBuffer[V](),
+		c:        &atomicx.Int32Counter{},
 	}
 	go ch.elasticallyResize()
 	return ch
@@ -45,7 +50,16 @@ func (ch *Stream[V]) Capacity() int {
 
 func (ch *Stream[V]) Resize(cap int) { ch.resize <- cap }
 
-func (ch *Stream[V]) Close() { close(ch.input) }
+func (ch *Stream[V]) Acquire(n int32) { ch.c.Add(n) }
+
+func (ch *Stream[V]) Close() {
+	ch.c.Add(-1)
+	if ch.c.Value() <= 0 {
+		ch.once.Do(func() {
+			close(ch.input)
+		})
+	}
+}
 
 func (ch *Stream[V]) SetInletAddress(addr address.Address) { ch.inletAddr = addr }
 

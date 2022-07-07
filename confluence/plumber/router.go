@@ -87,8 +87,8 @@ func (m MultiRouter[V]) capacity() int { return m.Capacity }
 
 func (m *MultiRouter[V]) linear(p *Pipeline) error {
 	stream := cfs.NewStream[V](m.Capacity)
-	return m.iterAddresses(func(from address.Address,
-		to address.Address) error {
+	stream.Acquire(int32(len(m.SourceTargets)))
+	return m.iterAddresses(func(from address.Address, to address.Address) error {
 		return route(p, from, to, stream)
 	})
 }
@@ -110,6 +110,7 @@ func (m MultiRouter[V]) divergent(p *Pipeline) error {
 func (m MultiRouter[V]) convergent(p *Pipeline) error {
 	return m.iterSinks(func(to address.Address) error {
 		stream := cfs.NewStream[V](m.Capacity)
+		stream.Acquire(int32(len(m.SourceTargets)))
 		return m.iterSources(func(from address.Address) error {
 			return route(p, from, to, stream)
 		})

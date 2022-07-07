@@ -139,7 +139,7 @@ type Stream[V Value] interface {
 
 // Inlet is the end of a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {
-	// Inlet pipes a value through the streamImpl.
+	// Inlet pipes a value through the Stream.
 	Inlet() chan<- V
 	// InletAddress returns the address of the Inlet.
 	InletAddress() address.Address
@@ -147,6 +147,8 @@ type Inlet[V Value] interface {
 	SetInletAddress(address.Address)
 	// Close closes the inlet.
 	Close()
+	// Acquire acquires the inlet.
+	Acquire(n int32)
 }
 
 // Outlet is the end of a Stream that emits values and can be addressed.

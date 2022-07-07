@@ -42,23 +42,46 @@ var _ = Describe("Router", func() {
 	Describe("MultiRouter", func() {
 		Describe("StitchUnary", func() {
 			It("Should wire a single channel between multiple addresses", func() {
-				source := &confluence.Emitter[int]{}
+				sourceOne := &confluence.Emitter[int]{}
+				sourceTwo := &confluence.Emitter[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				plumber.SetSource[int](p, "source", source)
+				plumber.SetSource[int](p, "sourceOne", sourceOne)
+				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
 				plumber.SetSink[int](p, "sinkOne", sinkOne)
 				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
 				router := &plumber.MultiRouter[int]{
-					SourceTargets: []address.Address{"source"},
+					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
 					Stitch:        plumber.StitchUnary,
 					Capacity:      1,
 				}
 				Expect(router.Route(p)).To(Succeed())
-				source.Out.Inlet() <- 1
+				sourceOne.Out.Inlet() <- 1
 				Expect(sinkOne.In.Outlet()).To(Receive(Equal(1)))
-				source.Out.Inlet() <- 1
+				sourceOne.Out.Inlet() <- 1
 				Expect(sinkTwo.In.Outlet()).To(Receive(Equal(1)))
+			})
+			It("Should close the channel after both sources release the Inlet", func() {
+				sourceOne := &confluence.Emitter[int]{}
+				sourceTwo := &confluence.Emitter[int]{}
+				sinkOne := &confluence.UnarySink[int]{}
+				sinkTwo := &confluence.UnarySink[int]{}
+				plumber.SetSource[int](p, "sourceOne", sourceOne)
+				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
+				plumber.SetSink[int](p, "sinkOne", sinkOne)
+				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
+				router := &plumber.MultiRouter[int]{
+					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
+					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
+					Stitch:        plumber.StitchUnary,
+					Capacity:      1,
+				}
+				Expect(router.Route(p)).To(Succeed())
+				sourceOne.Out.Close()
+				sourceTwo.Out.Close()
+				_, ok := <-sinkOne.In.Outlet()
+				Expect(ok).To(BeFalse())
 			})
 		})
 
@@ -124,7 +147,6 @@ var _ = Describe("Router", func() {
 
 		Describe("StitchConvergent", func() {
 			It("Should wire a separate channel for each sink", func() {
-
 				sourceOne := &confluence.Switch[int]{}
 				sourceTwo := &confluence.Switch[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
@@ -148,8 +170,8 @@ var _ = Describe("Router", func() {
 				Expect(sinkOne.In.Outlet()).To(Receive(Equal(1)))
 				sourceTwo.Out["sinkTwo"].Inlet() <- 1
 				Expect(sinkTwo.In.Outlet()).To(Receive(Equal(1)))
-
 			})
 		})
+
 	})
 })
