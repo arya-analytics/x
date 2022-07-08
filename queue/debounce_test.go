@@ -28,19 +28,19 @@ var _ = Describe("Debounce", func() {
 		d.Flow(ctx)
 	})
 	It("Should flush the queue at a specified interval", func() {
-		req.Inlet() <- []int{1, 2, 3, 4, 5}
-		req.Inlet() <- []int{6, 7, 8, 9, 10}
+		req.AcquireInlet() <- []int{1, 2, 3, 4, 5}
+		req.AcquireInlet() <- []int{6, 7, 8, 9, 10}
 		time.Sleep(50 * time.Millisecond)
 		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
-		responses := <-res.Outlet()
+		responses := <-res.Output()
 		Expect(responses).To(Equal([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
 	})
 	It("Should flush teh queue when the threshold is reached", func() {
-		req.Inlet() <- []int{1, 2, 3, 4, 5}
-		req.Inlet() <- []int{6, 7, 8, 9, 10}
-		req.Inlet() <- []int{11, 12, 13, 14, 15}
+		req.AcquireInlet() <- []int{1, 2, 3, 4, 5}
+		req.AcquireInlet() <- []int{6, 7, 8, 9, 10}
+		req.AcquireInlet() <- []int{11, 12, 13, 14, 15}
 		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
-		responses := <-res.Outlet()
+		responses := <-res.Output()
 		Expect(responses).To(Equal([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}))
 	})
 })

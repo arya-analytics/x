@@ -182,7 +182,7 @@ var _ = Describe("Pipeline", func() {
 			defer cancel()
 			pipe.Flow(ctx, confluence.CloseInletsOnExit())
 
-			Expect(ctx.WaitOnAll()).To(MatchError("done counting"))
+			Expect(ctx.Wait()).To(MatchError("done counting"))
 
 			Expect(len(evens) + len(odds)).To(Equal(9))
 		})

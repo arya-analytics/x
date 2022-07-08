@@ -22,11 +22,10 @@ func (c *core) Go(f func() error, opts ...GoOption) {
 		return
 	}
 	o := newGoOptions(opts)
-	go func() {
+	c.eg.Go(func() error {
 		defer c.runPostlude(o)
-		err := f()
-		c.fatal.Inlet() <- err
-	}()
+		return f()
+	})
 }
 
 func GoRange[V any](ctx Context, ch <-chan V, f func(Context, V) error, opts ...GoOption) {
@@ -89,12 +88,14 @@ func (c *core) maybeStop() {
 		return
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	// If we have already closed the maybeStop channel, we don't do anything.
 	select {
-	case <-c.stopped:
+	case <-c.mu.stopped:
 		return
 	default:
-		close(c.stopped)
+		close(c.mu.stopped)
 	}
 }
 
@@ -103,7 +104,6 @@ func (c *core) runPrelude() (prevent bool) {
 		return true
 	}
 	c.numForked.Add(1)
-	c.fatal.Resize(int(c.numForked.Value()))
 	return false
 }
 

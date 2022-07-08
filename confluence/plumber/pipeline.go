@@ -29,7 +29,7 @@ func (s *Segment[I, O]) constructEndpointRoutes() {
 func (s *Segment[I, O]) RouteInletTo(targets ...address.Address) error {
 	s.RouteInletsTo = targets
 	for _, addr := range s.RouteInletsTo {
-		if _, err := GetSink[O](s.Pipeline, addr); err != nil {
+		if _, err := GetSink[I](s.Pipeline, addr); err != nil {
 			return err
 		}
 	}
@@ -39,7 +39,7 @@ func (s *Segment[I, O]) RouteInletTo(targets ...address.Address) error {
 func (s *Segment[I, O]) RouteOutletFrom(targets ...address.Address) error {
 	s.RouteOutletsFrom = targets
 	for _, addr := range targets {
-		if _, err := GetSource[I](s.Pipeline, addr); err != nil {
+		if _, err := GetSource[O](s.Pipeline, addr); err != nil {
 			return err
 		}
 	}
@@ -66,12 +66,12 @@ func (e entry) Flow(ctx signal.Context, opts ...cfs.Option) {
 }
 
 func (p *Pipeline) Flow(ctx signal.Context, opts ...cfs.Option) {
-	for _, e := range p.Sources {
-		e.Flow(ctx, opts...)
+	for addr, e := range p.Sources {
+		e.Flow(ctx, append(opts, cfs.WithAddress(addr))...)
 	}
 	for addr, e := range p.Sinks {
 		if _, ok := p.Sources[addr]; !ok {
-			e.Flow(ctx, opts...)
+			e.Flow(ctx, append(opts, cfs.WithAddress(addr))...)
 		}
 	}
 }

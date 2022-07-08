@@ -23,7 +23,7 @@ var _ = Describe("Go", func() {
 			ch <- 0
 			ch <- 1
 			close(ch)
-			Expect(ctx.WaitOnAll()).To(Succeed())
+			Expect(ctx.Wait()).To(Succeed())
 			Expect(resV).To(Equal([]int{0, 1}))
 		})
 		It("Should shut down the routine when a non-nil error is returned", func() {
@@ -40,7 +40,7 @@ var _ = Describe("Go", func() {
 			})
 			ch <- 0
 			ch <- 1
-			Expect(errors.Is(ctx.WaitOnAll(), errors.New("error"))).To(BeTrue())
+			Expect(errors.Is(ctx.Wait(), errors.New("error"))).To(BeTrue())
 		})
 		It("Should shut down the routine when the context is cancelled", func() {
 			ch := make(chan int, 3)
@@ -55,7 +55,7 @@ var _ = Describe("Go", func() {
 			Expect(<-resV).To(Equal(0))
 			Expect(<-resV).To(Equal(1))
 			cancel()
-			Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())
+			Expect(errors.Is(ctx.Wait(), context.Canceled)).To(BeTrue())
 		})
 	})
 	Describe("GoTick", func() {
@@ -67,7 +67,7 @@ var _ = Describe("Go", func() {
 				count++
 				return nil
 			})
-			Expect(errors.Is(ctx.WaitOnAll(), context.DeadlineExceeded)).To(BeTrue())
+			Expect(errors.Is(ctx.Wait(), context.DeadlineExceeded)).To(BeTrue())
 			Expect(count).To(Equal(2))
 		})
 	})

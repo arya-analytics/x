@@ -47,7 +47,7 @@ var _ = Describe("ApplySink", func() {
 			input.Inlet() <- 2
 			input.Inlet() <- 3
 			input.Close()
-			Expect(ctx.WaitOnAll()).To(Succeed())
+			Expect(ctx.Wait()).To(Succeed())
 			Expect(<-double.Outlet()).To(Equal(1))
 			Expect(<-single.Outlet()).To(Equal(2))
 			Expect(<-double.Outlet()).To(Equal(3))
@@ -76,7 +76,7 @@ var _ = Describe("ApplySink", func() {
 		stream2.Inlet() <- 4
 		stream2.Close()
 		stream1.Close()
-		Expect(ctx.WaitOnAll()).To(Succeed())
+		Expect(ctx.Wait()).To(Succeed())
 		count := 0
 		for range single.Outlet() {
 			count++

@@ -3,55 +3,25 @@ package signal
 // WaitGroup provides methods for detecting and waiting for the exit of goroutines
 // managed by a signal.Conductor.
 type WaitGroup interface {
-	// WaitOnAny waits for any of the running goroutines to exit with an error.
-	// If allowCtx is false, WaitOnAny will ignore context errors. WaitOnAny is NOT
-	// safe to call concurrently with other Wait methods.
-	WaitOnAny(allowCtx bool) error
-	// WaitOnAll waits for all running goroutines to exit, then proceeds to return
+	// Wait waits for all running goroutines to exit, then proceeds to return
 	// the first non-nil error (returns nil if all errors are nil). Returns nil
 	// if no goroutines are running. WaitOnAll. is NOT safe to call concurrently
 	// with any other wait methods.
-	WaitOnAll() error
+	Wait() error
 	// Stopped returns a channel that is closed when the context is canceled and all
 	// running goroutines have exited.
 	Stopped() <-chan struct{}
 	AnyExited() bool
 }
 
-// WaitOnAny implements the WaitGroup interface.
-func (c *core) WaitOnAny(allowCtx bool) error {
-	return c.waitForNToExit(1, allowCtx)
-}
-
-// WaitOnAll implements the WaitGroup interface.
-func (c *core) WaitOnAll() error { return c.waitForNToExit(c.numRunning(), true) }
+// Wait implements the WaitGroup interface.
+func (c *core) Wait() error { return c.eg.Wait() }
 
 func (c *core) AnyExited() bool { return c.NumExited() > 0 }
 
 // Stopped implements the WaitGroup interface.
-func (c *core) Stopped() <-chan struct{} { return c.stopped }
-
-func (c *core) waitForNToExit(count int32, allowNil bool) error {
-	var (
-		numExited int32
-		err       error
-	)
-	if c.numRunning() == 0 {
-		c.maybeStop()
-		return nil
-	}
-	for _err := range c.fatal.Outlet() {
-		if _err != nil {
-			numExited++
-			if moreSignificant(_err, err) {
-				err = _err
-			}
-		} else if allowNil {
-			numExited++
-		}
-		if numExited >= count {
-			break
-		}
-	}
-	return err
+func (c *core) Stopped() <-chan struct{} {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mu.stopped
 }

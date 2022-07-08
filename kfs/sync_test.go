@@ -72,7 +72,7 @@ var _ = Describe("sync", func() {
 		}()
 		time.Sleep(15 * time.Millisecond)
 		cancel()
-		Expect(errors.Is(ctx.WaitOnAll(), context.Canceled)).To(BeTrue())
+		Expect(errors.Is(ctx.Wait(), context.Canceled)).To(BeTrue())
 		fOne := fs.OpenFiles()[1]
 		Expect(fOne.Age() < 3*time.Millisecond).To(BeTrue())
 	})

@@ -45,7 +45,7 @@ var _ = Describe("Sender", func() {
 				receiver.Receiver = server
 				receiver.OutTo(receiverStream)
 				receiver.Flow(sCtx, confluence.CloseInletsOnExit())
-				return sCtx.WaitOnAll()
+				return sCtx.Wait()
 			})
 		})
 		Describe("Sender", func() {
@@ -62,7 +62,7 @@ var _ = Describe("Sender", func() {
 				senderStream.Inlet() <- 2
 				v = <-receiverStream.Outlet()
 				cancel()
-				Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(Equal(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -83,7 +83,7 @@ var _ = Describe("Sender", func() {
 				v := <-receiverStream.Outlet()
 				Expect(v).To(Equal(2))
 				cancel()
-				Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(Equal(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -100,7 +100,7 @@ var _ = Describe("Sender", func() {
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
-				Expect(sCtx.WaitOnAll()).To(MatchError("error"))
+				Expect(sCtx.Wait()).To(MatchError("error"))
 			})
 		})
 	})
@@ -129,7 +129,7 @@ var _ = Describe("Sender", func() {
 					receiver.Receiver = server
 					receiver.OutTo(receiverStream)
 					receiver.Flow(serverCtx, confluence.CloseInletsOnExit())
-					return serverCtx.WaitOnAll()
+					return serverCtx.Wait()
 				})
 				clientStream, err := clientTransport.Stream(sCtx, stream.Address)
 				Expect(err).ToNot(HaveOccurred())
@@ -150,7 +150,7 @@ var _ = Describe("Sender", func() {
 					Expect(v).To(Equal(2))
 				}
 				senderStream.Close()
-				Expect(sCtx.WaitOnAll()).To(Succeed())
+				Expect(sCtx.Wait()).To(Succeed())
 			})
 			It("Should exit when the context is canceled", func() {
 				sender := &transfluence.MultiSender[int]{}
@@ -159,7 +159,7 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 2
 				cancel()
-				Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(Equal(context.Canceled))
 			})
 		})
 		Describe("SwitchSender", func() {
@@ -179,7 +179,7 @@ var _ = Describe("Sender", func() {
 					Expect(v).To(Equal(i))
 				}
 				senderStream.Close()
-				Expect(sCtx.WaitOnAll()).To(Succeed())
+				Expect(sCtx.Wait()).To(Succeed())
 			})
 			It("Should exit when the context is canceled", func() {
 				sender := &transfluence.SwitchSender[int]{}
@@ -192,7 +192,7 @@ var _ = Describe("Sender", func() {
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
 				cancel()
-				Expect(sCtx.WaitOnAll()).To(Equal(context.Canceled))
+				Expect(sCtx.Wait()).To(Equal(context.Canceled))
 			})
 			It("Should exit when the switch returns an error", func() {
 				sender := &transfluence.SwitchSender[int]{}
@@ -203,7 +203,7 @@ var _ = Describe("Sender", func() {
 				sender.InFrom(senderStream)
 				sender.Flow(sCtx)
 				senderStream.Inlet() <- 1
-				Expect(sCtx.WaitOnAll()).To(HaveOccurred())
+				Expect(sCtx.Wait()).To(HaveOccurred())
 			})
 		})
 		Describe("BatchSwitchSender", func() {
@@ -223,7 +223,7 @@ var _ = Describe("Sender", func() {
 				Expect(<-receiverStreams["localhost:2"].Outlet()).To(Equal(2))
 				Expect(<-receiverStreams["localhost:3"].Outlet()).To(Equal(3))
 				senderStream.Close()
-				Expect(sCtx.WaitOnAll()).To(Succeed())
+				Expect(sCtx.Wait()).To(Succeed())
 			})
 		})
 		It("Should exit when the context is canceled", func() {
@@ -238,7 +238,7 @@ var _ = Describe("Sender", func() {
 			sender.Flow(sCtx)
 			senderStream.Inlet() <- 2
 			cancel()
-			Expect(sCtx.WaitOnAll()).To(MatchError(context.Canceled))
+			Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 		})
 		It("Should exit when the switch returns an error", func() {
 			sender := &transfluence.BatchSwitchSender[int, int]{}
@@ -249,7 +249,7 @@ var _ = Describe("Sender", func() {
 			sender.InFrom(senderStream)
 			sender.Flow(sCtx)
 			senderStream.Inlet() <- 2
-			Expect(sCtx.WaitOnAll()).To(MatchError("error"))
+			Expect(sCtx.Wait()).To(MatchError("error"))
 		})
 	})
 })
