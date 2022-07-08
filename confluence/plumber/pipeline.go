@@ -5,6 +5,7 @@ import (
 	cfs "github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/signal"
 	"github.com/cockroachdb/errors"
+	"go/types"
 )
 
 type Segment[I, O cfs.Value] struct {
@@ -118,7 +119,7 @@ func GetSource[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Source[V], e
 	}
 	s, ok := rs.flow.(cfs.Source[V])
 	if !ok {
-		return nil, wrongType(addr, s, rs)
+		return nil, wrongType[types.Nil, V](addr, rs.flow)
 	}
 	return s, nil
 }
@@ -130,7 +131,7 @@ func GetSink[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Sink[V], error
 	}
 	s, ok := rs.flow.(cfs.Sink[V])
 	if !ok {
-		return nil, wrongType(addr, s, rs)
+		return nil, wrongType[V, types.Nil](addr, rs.flow)
 	}
 	return s, nil
 }
@@ -142,7 +143,7 @@ func GetSegment[I, O cfs.Value](p *Pipeline, addr address.Address) (cfs.Segment[
 	}
 	s, ok := rs.(cfs.Segment[I, O])
 	if !ok {
-		return nil, wrongType(addr, s, rs)
+		return nil, wrongType[I, O](addr, rs)
 	}
 	return s, nil
 }
@@ -154,11 +155,13 @@ func notFound(addr address.Address) error {
 	)
 }
 
-func wrongType(addr address.Address, expected, actual interface{}) error {
+func wrongType[I, O cfs.Value](addr address.Address, actual interface{}) error {
 	return errors.Newf(
-		"[plumber] - entity (segment, source, sink) at address %s is of type %T, expected %T",
+		`[plumber] - Expected entity (segment, source, sink)  at address %s to have
+				inlet type %T and outlet type %T, but got entity of type %T`,
 		addr,
+		*new(I),
+		*new(O),
 		actual,
-		expected,
 	)
 }
