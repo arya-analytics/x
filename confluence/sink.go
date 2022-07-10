@@ -1,43 +1,29 @@
 package confluence
 
 import (
-	"github.com/arya-analytics/x/shutdown"
+	"github.com/arya-analytics/x/signal"
 )
 
-// Sink is a segment that can accept values from outlets, but cannot
-// send values to inlets. Sinks are typically used to write values
-// to network pipes or persistent storage.
-type Sink[V Value] interface {
-	InFrom(outlets ...Outlet[V])
-	Flow[V]
+// UnarySink is a basic implementation of Sink that can receive values from a single Inlet.
+type UnarySink[V Value] struct {
+	// Sink is called whenever a value is received from the Outlet.
+	Sink func(ctx signal.Context, value V) error
+	In   Outlet[V]
 }
 
-// CoreSink is a basic implementation of Sink. It implements the Segment
-// interface, but will panic if any inlets are added.
-type CoreSink[V Value] struct {
-	Sink   func(ctx Context, value V)
-	inFrom []Outlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (s *CoreSink[V]) InFrom(outlet ...Outlet[V]) { s.inFrom = append(s.inFrom, outlet...) }
-
-// OutTo implements the Segment interface. This method will panic if called.
-func (s *CoreSink[V]) OutTo(_ ...Inlet[V]) { panic("sinks cannot pipe values out") }
-
-// Flow implements the Segment interface.
-func (s *CoreSink[V]) Flow(ctx Context) {
-	for _, outlet := range s.inFrom {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					s.Sink(ctx, v)
-				}
-			}
-		})
+// InFrom implements the Sink interface.
+func (us *UnarySink[V]) InFrom(outlets ...Outlet[V]) {
+	if len(outlets) != 1 {
+		panic("[confluence.UnarySink] - must have exactly one outlet")
 	}
+	us.In = outlets[0]
+}
+
+// Flow implements the Flow interface.
+func (us *UnarySink[V]) Flow(ctx signal.Context, opts ...Option) {
+	us.GoRange(ctx, us.Sink, NewOptions(opts).Signal...)
+}
+
+func (us *UnarySink[V]) GoRange(ctx signal.Context, f func(signal.Context, V) error, opts ...signal.GoOption) {
+	signal.GoRange(ctx, us.In.Outlet(), f, opts...)
 }

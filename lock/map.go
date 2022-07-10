@@ -1,7 +1,6 @@
 package lock
 
 import (
-	"github.com/cockroachdb/errors"
 	"sync"
 )
 
@@ -23,7 +22,7 @@ func (m Map[K]) Acquire(keys ...K) error {
 			m.locks[key] = true
 		}
 		if locked {
-			return errors.New("lock already held")
+			return ErrLocked
 		}
 	}
 	return nil

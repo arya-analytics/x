@@ -18,3 +18,11 @@ func CompositeKey(elems ...interface{}) ([]byte, error) {
 	}
 	return b.Bytes(), cw.Error()
 }
+
+func StaticCompositeKey(elems ...interface{}) []byte {
+	b, err := CompositeKey(elems...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}

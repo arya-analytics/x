@@ -7,11 +7,11 @@ package alamos
 //
 // Creating Experiments:
 //
-// ToAddr create an experiment, use alamos.New().
+// SinkTarget create an experiment, use alamos.New().
 //
 // Metrics:
 //
-// ToAddr add a metric, use one of the metric constructors. Available metrics are:
+// SinkTarget add a metric, use one of the metric constructors. Available metrics are:
 //
 // 		- alamos.NewGauge
 //		- alamos.NewSeries

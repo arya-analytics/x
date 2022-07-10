@@ -1,24 +1,31 @@
 package confluence_test
 
 import (
+	"context"
 	"github.com/arya-analytics/x/confluence"
+	"github.com/arya-analytics/x/signal"
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Filter", func() {
+var _ = Describe("ApplySink", func() {
 	It("Should filter values correctly", func() {
+		ctx, cancel := signal.WithCancel(context.Background())
 		inlet := confluence.NewStream[int](3)
 		outlet := confluence.NewStream[int](3)
-		filter := confluence.Filter[int]{Filter: func(ctx confluence.Context, x int) bool { return x%3 == 0 }}
+		filter := confluence.Filter[int]{
+			Apply: func(ctx signal.Context, x int) (bool, error) {
+				return x%3 == 0, nil
+			}}
 		filter.InFrom(inlet)
 		filter.OutTo(outlet)
-		ctx := confluence.DefaultContext()
 		filter.Flow(ctx)
 		inlet.Inlet() <- 1
 		inlet.Inlet() <- 2
 		inlet.Inlet() <- 3
 		Expect(<-outlet.Outlet()).To(Equal(3))
-		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
+		cancel()
+		Expect(errors.Is(ctx.Wait(), context.Canceled)).To(BeTrue())
 	})
 })

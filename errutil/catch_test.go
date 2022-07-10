@@ -35,7 +35,7 @@ var _ = Describe("Catch", func() {
 				Expect(catcher.Error()).To(BeNil())
 			})
 		})
-		Context("ErrC encountered", func() {
+		Context("ResponseErrors encountered", func() {
 			var (
 				counter int
 				catcher *errutil.CatchSimple
@@ -114,7 +114,7 @@ var _ = Describe("Catch", func() {
 			})
 		})
 	})
-	Describe("Next Hook", func() {
+	Describe("next Hook", func() {
 		It("Should pipe errors", func() {
 			pipe := make(chan error, 10)
 			c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(pipe)))
@@ -147,7 +147,7 @@ var _ = Describe("Catch", func() {
 			c.Exec(func() error {
 				return errors.New("not random error")
 			})
-			Expect(c.Error()).To(Equal(errors.New("random error")))
+			Expect(errors.Is(c.Error(), errors.New("random error"))).To(BeTrue())
 		})
 	})
 })

@@ -27,7 +27,7 @@ func (e *entry[T]) Key() T {
 
 func newEntry[T comparable](key T, f BaseFile) File[T] {
 	return &entry[T]{
-		Lock:     lock.New(),
+		Lock:     lock.Idempotent(),
 		BaseFile: f,
 		ls:       time.Now(),
 		key:      key,

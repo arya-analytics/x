@@ -7,7 +7,7 @@ import (
 )
 
 var _ = Describe("where", func() {
-	Describe("Map", func() {
+	Describe("ApplySink", func() {
 		Describe("Exclude", func() {
 			It("Should exclude the given keys", func() {
 				m := map[string]interface{}{

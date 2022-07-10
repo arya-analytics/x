@@ -1,4 +1,4 @@
-package shutdown_test
+package transfluence_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestShutter(t *testing.T) {
+func TestTransfluence(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Shutdown Suite")
+	RunSpecs(t, "Transfluence Suite")
 }

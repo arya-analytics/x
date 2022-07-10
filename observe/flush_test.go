@@ -26,7 +26,7 @@ var _ = Describe("Flush", func() {
 			Store:       kv,
 			MinInterval: 0,
 		}
-		o.OnChange(flush.Flush)
+		o.OnChange(flush.FlushSync)
 		o.Notify(simpleFlusher{value: []byte("hello")})
 		Expect(kv.Get([]byte("key"))).To(Equal([]byte("hello")))
 	})

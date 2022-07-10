@@ -2,7 +2,8 @@ package kfs
 
 import (
 	"github.com/arya-analytics/x/errutil"
-	shut "github.com/arya-analytics/x/shutdown"
+	"github.com/arya-analytics/x/signal"
+	"github.com/cockroachdb/errors"
 	"time"
 )
 
@@ -20,22 +21,21 @@ type Sync[T comparable] struct {
 	Interval time.Duration
 	// MaxAge sets the maximum age of a file before it is synced.
 	MaxAge time.Duration
-	// Shutter is used to gracefully shut down the sync.
-	Shutter shut.Shutdown
+	// Conductor is used to fork and close goroutines.
 }
 
 // Start starts a goroutine that periodically calls Sync.
 // Shuts down based on the Sync.Shutter.
 // When sync.Shutter.Shutdown is called, the Sync executes a forced sync ON all files and then exits.
-func (s *Sync[T]) Start() <-chan error {
+func (s *Sync[T]) Start(ctx signal.Context) <-chan error {
 	errs := make(chan error)
 	c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(errs)))
 	t := time.NewTicker(s.Interval)
-	s.Shutter.Go(func(sig chan shut.Signal) error {
+	ctx.Go(func(ctx signal.Context) error {
 		for {
 			select {
-			case <-sig:
-				return s.forceSync()
+			case <-ctx.Done():
+				return errors.CombineErrors(s.forceSync(), ctx.Err())
 			case <-t.C:
 				c.Exec(s.sync)
 			}

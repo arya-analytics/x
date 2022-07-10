@@ -6,7 +6,7 @@ import (
 
 // |||||| INTERFACE ||||||
 
-// Duration is a metric that measures the execution time of a set of instructions. Values can be recorded either
+// Duration is a metric that measures the execution time of a set of instructions. segments can be recorded either
 // through the Record method or by creating a new Stopwatch and calling its dur and Stop methods.
 // Duration is go-routine safe.
 type Duration interface {

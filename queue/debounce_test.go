@@ -1,8 +1,10 @@
 package queue_test
 
 import (
+	"context"
 	"github.com/arya-analytics/x/confluence"
 	"github.com/arya-analytics/x/queue"
+	"github.com/arya-analytics/x/signal"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"time"
@@ -10,28 +12,33 @@ import (
 
 var _ = Describe("Debounce", func() {
 	var (
-		req confluence.Stream[[]int]
-		res confluence.Stream[[]int]
-		d   *queue.Debounce[int]
-		ctx confluence.Context
+		req    confluence.Stream[[]int]
+		res    confluence.Stream[[]int]
+		d      *queue.Debounce[int]
+		ctx    signal.Context
+		cancel context.CancelFunc
 	)
 	BeforeEach(func() {
 		d = &queue.Debounce[int]{
-			Interval:  30 * time.Millisecond,
-			Threshold: 15,
+			Config: queue.DebounceConfig{
+				Interval:  30 * time.Millisecond,
+				Threshold: 15,
+			},
 		}
 		req = confluence.NewStream[[]int](10)
 		res = confluence.NewStream[[]int](10)
-		ctx = confluence.DefaultContext()
+		ctx, cancel = signal.TODO()
 		d.InFrom(req)
 		d.OutTo(res)
-		d.Flow(ctx)
+		d.Flow(ctx, confluence.CloseInletsOnExit())
 	})
+	AfterEach(func() { cancel() })
 	It("Should flush the queue at a specified interval", func() {
 		req.Inlet() <- []int{1, 2, 3, 4, 5}
 		req.Inlet() <- []int{6, 7, 8, 9, 10}
 		time.Sleep(50 * time.Millisecond)
-		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
+		req.Close()
+		Expect(ctx.Wait()).To(Succeed())
 		responses := <-res.Outlet()
 		Expect(responses).To(Equal([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
 	})
@@ -39,7 +46,8 @@ var _ = Describe("Debounce", func() {
 		req.Inlet() <- []int{1, 2, 3, 4, 5}
 		req.Inlet() <- []int{6, 7, 8, 9, 10}
 		req.Inlet() <- []int{11, 12, 13, 14, 15}
-		Expect(ctx.Shutdown.Shutdown()).To(Succeed())
+		req.Close()
+		Expect(ctx.Wait()).To(Succeed())
 		responses := <-res.Outlet()
 		Expect(responses).To(Equal([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}))
 	})

@@ -1,383 +1,162 @@
+// Package confluence implements a generic, template based component framework for
+// building concurrent value passing programs. Confluence is built around two core
+// types: Value and Segment.
+//
+// A Value can is any piece of data that can be passed through
+// a go channel. Because channels are typically mutex locked, values should generally
+// be exchanged as batches of data as opposed to individual entities (i.e.
+// pass []int as the as opposed to int).
+//
+// A Segment is an entity that processes values. A Segment is typically
+// a goroutine that reads values from an input channel, does some operation on them
+// (sum, avg, IO write, network write, etc.), and passes a result to an output channel.
+// This is not to say that the functionality of a Segment cannot extend beyond a
+// simple transformation.
+//
+// For example, a Segment can route values from a set of inputs (called Outlet(s)) to
+// a set of outputs (called Inlet(s)). The input-Outlet, outlet-Inlet naming convention
+// might seem strange at first, but the general idea is that an Outlet is the end of a
+// stream that emits values (i.e. <-chan Value) and an Inlet is a stream that receives
+// values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
+// to send messages to segments with different addresses based on some criteria.
+//
+// Collections of Segments can also be composed into a pipeline using the plumber
+// package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
+// connected to other Segment(s). This allows for a flexible and powerful
+// composition capabilities.
+//
+// The confluence package provides a number of built-in Segments that can be used
+// by themselves or embedded into custom Segment(s) that provide functionality specific
+// to your use case.
+//
+// A Segment is a composition of three interfaces:
+//
+// 		1. Flow - Flow.Flow method is used to start any and all operations (goroutines,
+//		network pipes, etc.) used by a Segment. The context provided to Flow should be
+//		used to stop operations and clear process resources.
+//
+//		2. Source - A Source is the part of the Segment that can send values to output
+//		streams (Inlet(s)). Inlets(s) are bound to the Sink (and therefore Segment)
+//		by calling the ApplySink.OutTo(inlets ...Inlet[ValueType]) method.
+//
+//		3. Sink - A Sink is the part of the Segment that can receive values.
+//		Input streams (Outlet(s)). Outlet(s) are bound to the Sink (and therefore Segment)
+//		by calling the Sink.InFrom(outlets ...Outlet[ValueType]) method.
+//
+// All of this flexibility comes at the cost of needing to follow a few important rules
+// and principles when writing programs based on confluence:
+//
+// 		1. All input streams (Outlet(s)) must be bound to a Segment by using
+//		the InFrom() method.
+//
+//		2. All output streams (Inlet(s)) must be bound to a Segment by using
+//		the OutTo() method.
+//
+//		3. The only way to start a Segment is by calling the Flow.Flow method. A single
+//		instance of a Segment (if passed as a pointer) should generally only be running
+//		once at a time. This is not to say that Segment(s) shouldn't be restarted. This
+//		rule is more of a guideline, and can be broken when you know what you're doing.
+//		If you're worried about this happening, check out the Gate, GateSource,
+//		and GateSink functions; these implement locks that prevent the segment from
+//		being started while already running).
+//
+// Related packages:
+//
+//		1. transfluence - implements transport for writing Segment(s) that
+//		interact with a network transport.
+//
+//		2. plumber - components for connecting Segment(s) together and routing
+//		streams between them.
+//
 package confluence
 
 import (
-	"context"
 	"github.com/arya-analytics/x/address"
-	"github.com/arya-analytics/x/shutdown"
-	"time"
+	"github.com/arya-analytics/x/signal"
 )
-
-// |||||| VALUE ||||||
 
 // Value represents an item that can be sent through a Stream.
 type Value any
 
-// |||||| STREAMS ||||||
+// Segment is a type that reads a value from a set of Inlet(s), performs some operation,
+// transformation, etc.and writes a value to a set of Outlet(s). The user of a Segment
+// should be unaware of what occurs internally, and should only pass values through the
+// Inlet and Outlet interfaces.
+type Segment[I, O Value] interface {
+	Sink[I]
+	Source[O]
+}
 
-// Inlet is a Stream that accepts values and can be addressed.
+// Flow is an entity that starts goroutines that process a stream of values.
+// All processing goroutines should be started when Flow is called, and should stop
+// when the provided context is cancelled. Any options defined or provided should
+// not affect the algorithmic structure of the Flow, and should instead modify
+// runtime context or behavior.
+type Flow interface {
+	// Flow starts the Flow process under the provided signal.Context.
+	Flow(ctx signal.Context, opts ...Option)
+}
+
+// Sink is an interface that accepts values from a set of Outlet(s). The user of a Sink
+// should be unaware of what occurs internally, and should only pass values through
+// the Outlet interfaces.
+type Sink[O Value] interface {
+	InFrom(outlets ...Outlet[O])
+	Flow
+}
+
+// Source is an interface that sends values to a set of Inlet(s). The user of a Source
+// should be unaware of what occurs internally, and should only pass values through // the Inlet interfaces.
+type Source[I Value] interface {
+	OutTo(inlets ...Inlet[I])
+	Flow
+	InletCloser
+}
+
+// InletCloser is a type that contains a set of Inlet(s)  that can be closed. This type
+// also typically implements the Source interface.
+type InletCloser interface {
+	CloseInlets()
+}
+
+// TransformFunc is a template for a function  that transforms a value from one type to
+// another. A TransformFunc can perform IO, Network Operations, Aggregations, or any other
+// type of operation.
+type TransformFunc[I, O Value] struct {
+	//	ApplyTransform is the function that performs the transformation. The user of the LinearTransform
+	//	should define this function before Flow is called.
+	ApplyTransform func(ctx signal.Context, i I) (o O, ok bool, err error)
+}
+
+// Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
+// and an addressable Inlet. These addresses are best represented as unique locations where values
+// are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
+// Segments, as long as those segments perform are replicates of one another.
+type Stream[V Value] interface {
+	Inlet[V]
+	Outlet[V]
+}
+
+// Inlet is the end of a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {
-	// Inlet pipes a value through the streamImpl.
+	// Inlet pipes a value through the Stream.
 	Inlet() chan<- V
-	// InletAddress returns the address of the inlet.
+	// InletAddress returns the address of the Inlet.
 	InletAddress() address.Address
-	// SetInletAddress sets the address of the inlet.
+	// SetInletAddress sets the OutletAddress of the Inlet.
 	SetInletAddress(address.Address)
+	// Close closes the inlet.
+	Close()
+	// Acquire acquires the inlet.
+	Acquire(n int32)
 }
 
-// Outlet is a Stream that emits values and can be addressed.
+// Outlet is the end of a Stream that emits values and can be addressed.
 type Outlet[V Value] interface {
-	// Outlet receives a value from the streamImpl.
+	// Outlet receives a value from the Stream.
 	Outlet() <-chan V
-	// OutletAddress returns the address of the outlet.
+	// OutletAddress returns the address of the Outlet.
 	OutletAddress() address.Address
-	// SetOutletAddress sets the address of the outlet.
+	// SetOutletAddress sets the OutletAddress of the Outlet.
 	SetOutletAddress(address.Address)
-}
-
-// |||||| SEGMENT ||||||
-
-type Flow[V Value] interface {
-	Flow(ctx Context)
-}
-
-// Segment is an interface that accepts values from an Inlet Stream, does some operation on them, and returns the
-// values through an Outlet Stream.
-type Segment[V Value] interface {
-	Source[V]
-	Sink[V]
-}
-
-// |||||| CONTEXT ||||||
-
-type Context struct {
-	Ctx      context.Context
-	ErrC     chan error
-	Shutdown shutdown.Shutdown
-}
-
-func DefaultContext() Context {
-	return Context{
-		Ctx:      context.Background(),
-		ErrC:     make(chan error),
-		Shutdown: shutdown.New(),
-	}
-}
-
-// |||||| ROUTER ||||||
-
-// Switch is a segment that reads values from a set of input streams, resolves their address,
-// and sends them to the appropriate output streams. Switch is a more efficient implementation of
-// Map for when the addresses of input streams are not important.
-type Switch[V Value] struct {
-	// Switch is a function that resolves the address of a Value.
-	Switch func(ctx Context, value V) address.Address
-	inFrom []Outlet[V]
-	outTo  map[address.Address]Inlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (r *Switch[V]) InFrom(outlets ...Outlet[V]) {
-	r.inFrom = append(r.inFrom, outlets...)
-}
-
-// OutTo implements the Segment interface.
-func (r *Switch[V]) OutTo(inlets ...Inlet[V]) {
-	if r.outTo == nil {
-		r.outTo = make(map[address.Address]Inlet[V])
-	}
-	for _, inlet := range inlets {
-		r.outTo[inlet.InletAddress()] = inlet
-	}
-}
-
-// Flow implements the Segment interface.
-func (r *Switch[V]) Flow(ctx Context) {
-	for _, outlet := range r.inFrom {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					addr := r.Switch(ctx, v)
-					if addr == "" {
-						continue
-					}
-					inlet, ok := r.outTo[addr]
-					if !ok {
-						panic("address not found")
-					}
-					inlet.Inlet() <- v
-				}
-			}
-		})
-	}
-}
-
-type BatchSwitch[V Value] struct {
-	Switch func(ctx Context, value V) map[address.Address]V
-	sw     Switch[V]
-}
-
-func (b *BatchSwitch[V]) InFrom(outlets ...Outlet[V]) { b.sw.InFrom(outlets...) }
-
-func (b *BatchSwitch[V]) OutTo(inlets ...Inlet[V]) { b.sw.OutTo(inlets...) }
-
-func (b *BatchSwitch[V]) Flow(ctx Context) {
-	for _, outlet := range b.sw.inFrom {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					addrMap := b.Switch(ctx, v)
-					for addr, batch := range addrMap {
-						inlet, ok := b.sw.outTo[addr]
-						if !ok {
-							panic("address not found")
-						}
-						inlet.Inlet() <- batch
-					}
-				}
-			}
-		})
-	}
-}
-
-// |||||| CONFLUENCE ||||||
-
-// Confluence is a segment that reads values from a set of input streams and pipes them to multiple output streams.
-// Every output streamImpl receives a copy of the value.
-type Confluence[V Value] struct {
-	In  []Outlet[V]
-	Out []Inlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (d *Confluence[V]) InFrom(outlets ...Outlet[V]) {
-	d.In = append(d.In, outlets...)
-}
-
-// OutTo implements the Segment interface.
-func (d *Confluence[V]) OutTo(inlets ...Inlet[V]) {
-	d.Out = append(d.Out, inlets...)
-}
-
-// Flow implements the Segment interface.
-func (d *Confluence[V]) Flow(ctx Context) {
-	for _, outlet := range d.In {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					for _, inlet := range d.Out {
-						inlet.Inlet() <- v
-					}
-				}
-			}
-		})
-	}
-}
-
-// Delta is similar to confluence. It reads values from a set of input streams and pipes them to a set of output streams.
-// Only one output streamImpl receives a copy of each value from input streamImpl. This value is taken by the first
-// inlet that can accept it.
-type Delta[V Value] struct {
-	In  []Outlet[V]
-	Out []Inlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (d *Delta[V]) InFrom(outlets ...Outlet[V]) {
-	d.In = append(d.In, outlets...)
-}
-
-// OutTo implements the Segment interface.
-func (d *Delta[V]) OutTo(inlets ...Inlet[V]) {
-	d.Out = append(d.Out, inlets...)
-}
-
-// Flow implements the Segment interface.
-func (d *Delta[V]) Flow(ctx Context) {
-	for _, outlet := range d.In {
-		outlet = outlet
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-				o:
-					for _, inlet := range d.Out {
-						select {
-						case inlet.Inlet() <- v:
-							break o
-						default:
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
-// |||||| TRANSFORM ||||||
-
-// Transform is a segment that reads values from an input streamImpl, executes a transformation on them,
-// and sends them to an out Stream.
-type Transform[V Value] struct {
-	Transform func(ctx Context, value V) (V, bool)
-	Linear[V]
-}
-
-// Flow implements the Segment interface.
-func (f *Transform[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			case v := <-f.In.Outlet():
-				if tv, ok := f.Transform(ctx, v); ok {
-					f.Out.Inlet() <- tv
-				}
-			}
-		}
-	})
-}
-
-// |||||| FILTER ||||||
-
-// Filter is a segment that reads values from an input Stream, filters them through a function, and
-// optionally discards them to an output Stream.
-type Filter[V Value] struct {
-	Filter  func(ctx Context, value V) bool
-	Rejects Inlet[V]
-	Linear[V]
-}
-
-// Flow implements the Segment interface.
-func (f *Filter[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			case v := <-f.In.Outlet():
-				if f.Filter(ctx, v) {
-					f.Out.Inlet() <- v
-				} else if f.Rejects != nil {
-					f.Rejects.Inlet() <- v
-				}
-			}
-		}
-	})
-}
-
-// |||||| LINEAR ||||||
-
-// Linear is a segment that reads values from a single input streamImpl and pipes them to a single output streamImpl.
-type Linear[V Value] struct {
-	In  Outlet[V]
-	Out Inlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (l *Linear[V]) InFrom(outlets ...Outlet[V]) {
-	if len(outlets) == 0 {
-		panic("linear must have exactly one outlet")
-	}
-	l.In = outlets[0]
-}
-
-// OutTo implements the Segment interface.
-func (l *Linear[V]) OutTo(inlets ...Inlet[V]) {
-	if len(inlets) == 0 {
-		panic("linear must have exactly one outlet")
-	}
-	l.Out = inlets[0]
-}
-
-// Flow implements the Segment interface.
-func (l *Linear[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for {
-			select {
-			case <-sig:
-				return nil
-			case l.Out.Inlet() <- <-l.In.Outlet():
-			}
-		}
-	})
-}
-
-// |||||| MAP ||||||
-
-// Map is a segment that reads values from an addresses input streamImpl, maps them to an output address, and
-// sends them. Map is a relatively inefficient Segment, use Switch when possible.
-type Map[V Value] struct {
-	Map func(ctx Context, addr address.Address, v Value) address.Address
-	In  map[address.Address]Outlet[V]
-	Out map[address.Address]Inlet[V]
-}
-
-// InFrom implements the Segment interface.
-func (m *Map[V]) InFrom(outlet ...Outlet[V]) {
-	if m.In == nil {
-		m.In = make(map[address.Address]Outlet[V])
-	}
-	for _, o := range outlet {
-		m.In[o.OutletAddress()] = o
-	}
-}
-
-// OutTo implements the Segment interface.
-func (m *Map[V]) OutTo(inlet ...Inlet[V]) {
-	if m.Out == nil {
-		m.Out = make(map[address.Address]Inlet[V])
-	}
-	for _, i := range inlet {
-		m.Out[i.InletAddress()] = i
-	}
-}
-
-// Flow implements the Segment interface.
-func (m *Map[V]) Flow(ctx Context) {
-	for inAddr, outlet := range m.In {
-		ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-			for {
-				select {
-				case <-sig:
-					return nil
-				case v := <-outlet.Outlet():
-					m.Out[m.Map(ctx, inAddr, v)].Inlet() <- v
-				}
-			}
-		})
-	}
-}
-
-// |||||| EMITTER ||||||
-
-type Emitter[V Value] struct {
-	Emit     func(ctx Context) V
-	Store    func(ctx Context, value V)
-	Interval time.Duration
-	Linear[V]
-}
-
-func (e *Emitter[V]) Flow(ctx Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
-		for batch := range e.In.Outlet() {
-			e.Store(ctx, batch)
-		}
-		return nil
-	})
-	ctx.Shutdown.GoTick(e.Interval, func() error { e.Out.Inlet() <- e.Emit(ctx); return nil })
 }

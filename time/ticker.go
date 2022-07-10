@@ -7,7 +7,7 @@ import (
 // ScaledTicker is a ticker that scales the duration between ticks.
 // It provides an identical interface to a time.Ticker.
 type ScaledTicker struct {
-	C     <-chan time.Duration
+	C     <-chan time.Time
 	Scale float64
 	dur   time.Duration
 	stop  chan struct{}
@@ -16,14 +16,14 @@ type ScaledTicker struct {
 // Stop stops the ticker
 func (s *ScaledTicker) Stop() { close(s.stop) }
 
-func (s *ScaledTicker) tick(c chan time.Duration) {
+func (s *ScaledTicker) tick(c chan time.Time) {
 	t := time.NewTicker(s.dur)
 	for {
 		select {
 		case <-s.stop:
 			return
 		case <-t.C:
-			c <- s.dur
+			c <- time.Now()
 			s.dur = time.Duration(float64(s.dur) * s.Scale)
 			t.Reset(s.dur)
 		}
@@ -32,7 +32,7 @@ func (s *ScaledTicker) tick(c chan time.Duration) {
 
 // NewScaledTicker returns a new ScaledTicker that ticks at the given duration and scale.
 func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
-	c := make(chan time.Duration)
+	c := make(chan time.Time)
 	t := &ScaledTicker{dur: d, Scale: scale, stop: make(chan struct{}), C: c}
 	go t.tick(c)
 	return t

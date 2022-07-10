@@ -53,38 +53,32 @@ var _ = Describe("KFS", func() {
 		})
 		It("Should allow multiple goroutines to write to the file", func() {
 			wg := sync.WaitGroup{}
-			wg.Add(2)
-			go func() {
-				defer GinkgoRecover()
-				defer wg.Done()
-				f, err := fs.Acquire(1)
-				Expect(err).ToNot(HaveOccurred())
-				_, err = f.Write([]byte("hello"))
-				Expect(err).ToNot(HaveOccurred())
-				fs.Release(1)
-			}()
-			go func() {
-				defer GinkgoRecover()
-				defer wg.Done()
-				f, err := fs.Acquire(1)
-				Expect(err).ToNot(HaveOccurred())
-				_, err = f.Write([]byte("world"))
-				if err != nil {
-					panic(err)
+			for i := 0; i < 300; i++ {
+				count := 100
+				wg.Add(count)
+				for i := 0; i < count; i++ {
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						f, err := fs.Acquire(1)
+						Expect(err).ToNot(HaveOccurred())
+						_, err = f.Write([]byte("hello"))
+						Expect(err).ToNot(HaveOccurred())
+						fs.Release(1)
+					}()
 				}
-				fs.Release(1)
-			}()
-			wg.Wait()
-			f, err := baseFS.Open("testdata/1.test")
-			Expect(err).ToNot(HaveOccurred())
-			defer func() {
-				defer GinkgoRecover()
+				wg.Wait()
+				f, err := baseFS.Open("testdata/1.test")
+				Expect(err).ToNot(HaveOccurred())
+				b := make([]byte, count*5)
+				_, err = f.Read(b)
+				Expect(err).ToNot(HaveOccurred())
+				for i := 0; i < count*5; i += 5 {
+					Expect(b[i : i+5]).To(Equal([]byte("hello")))
+				}
 				Expect(f.Close()).To(BeNil())
-			}()
-			b := make([]byte, 10)
-			_, err = f.Read(b)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(b)).To(BeElementOf([]string{"helloworld", "worldhello"}))
+			}
+
 		})
 	})
 })

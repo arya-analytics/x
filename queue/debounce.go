@@ -2,7 +2,7 @@ package queue
 
 import (
 	"github.com/arya-analytics/x/confluence"
-	"github.com/arya-analytics/x/shutdown"
+	"github.com/arya-analytics/x/signal"
 	"time"
 )
 
@@ -16,53 +16,50 @@ type DebounceConfig struct {
 
 // Debounce is a simple, goroutine safe queue that flushes data to a channel on a timer or queue size threshold.
 type Debounce[V confluence.Value] struct {
-	DebounceConfig
-	confluence.Linear[[]V]
+	Config DebounceConfig
+	confluence.LinearTransform[[]V, []V]
 }
 
-const emptyCycleShutdownCount = 5
-
 // Flow starts the queue.
-func (d *Debounce[V]) Flow(ctx confluence.Context) {
-	ctx.Shutdown.Go(func(sig chan shutdown.Signal) error {
+func (d *Debounce[V]) Flow(ctx signal.Context, opts ...confluence.Option) {
+	fo := confluence.NewOptions(opts)
+	ctx.Go(func(ctx signal.Context) error {
 		var (
-			t        = time.NewTicker(d.Interval)
-			sd       = false
-			numEmpty = 0
+			t = time.NewTicker(d.Config.Interval)
 		)
 		defer t.Stop()
 		for {
 			select {
-			case <-sig:
-				sd = true
+			case <-ctx.Done():
+				return ctx.Err()
 			default:
 			}
-			values := d.fill(t)
+			values, ok := d.fill(t.C)
+			if !ok {
+				return nil
+			}
 			if len(values) == 0 {
-				if sd {
-					numEmpty++
-					if numEmpty > emptyCycleShutdownCount {
-						return nil
-					}
-				}
 				continue
 			}
 			d.Out.Inlet() <- values
 		}
-	})
+	}, fo.Signal...)
 }
 
-func (d *Debounce[V]) fill(t *time.Ticker) []V {
-	ops := make([]V, 0, d.Threshold)
+func (d *Debounce[V]) fill(C <-chan time.Time) ([]V, bool) {
+	ops := make([]V, 0, d.Config.Threshold)
 	for {
 		select {
-		case values := <-d.In.Outlet():
-			ops = append(ops, values...)
-			if len(ops) >= d.Threshold {
-				return ops
+		case values, ok := <-d.In.Outlet():
+			if !ok {
+				return ops, false
 			}
-		case <-t.C:
-			return ops
+			ops = append(ops, values...)
+			if len(ops) >= d.Config.Threshold {
+				return ops, true
+			}
+		case <-C:
+			return ops, true
 		}
 	}
 }

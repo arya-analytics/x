@@ -4,6 +4,7 @@ package kfs
 
 import (
 	"fmt"
+	"github.com/arya-analytics/x/lock"
 	"go.uber.org/zap"
 	"io"
 	"os"
@@ -44,14 +45,8 @@ type FS[T comparable] interface {
 type File[T comparable] interface {
 	Key() T
 	BaseFile
-	FileLock
 	FileSync
-}
-
-type FileLock interface {
-	Acquire()
-	Release()
-	TryAcquire() bool
+	lock.Lock
 }
 
 type FileSync interface {
@@ -106,7 +101,7 @@ func (fs *defaultFS[T]) Acquire(key T) (File[T], error) {
 	fs.mu.Lock()
 	e, ok := fs.entries[key]
 	if ok {
-		// We need to unlock the mutex before we Acquire the Lock on the file,
+		// We need to unlock the mutex before we Acquire the idempotent on the file,
 		// so another goroutine can Release it.
 		fs.mu.Unlock()
 		e.Acquire()
@@ -117,6 +112,7 @@ func (fs *defaultFS[T]) Acquire(key T) (File[T], error) {
 		return e, nil
 	}
 	f, err := fs.newEntry(key)
+	f.Acquire()
 	fs.mu.Unlock()
 	if err != nil {
 		fs.logger.Error("kfs failed to acquire file", zap.Any("key", key), zap.Error(err))
@@ -207,6 +203,8 @@ func (fs *defaultFS[T]) Metrics() Metrics {
 
 // OpenFiles implements FS. Note: does not return a copy. Do not modify the returned map.
 func (fs *defaultFS[T]) OpenFiles() map[T]File[T] {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.entries
 }
 

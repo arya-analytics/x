@@ -23,6 +23,12 @@ type Executor interface {
 	Exec(q Query) error
 }
 
+// Factory is an entity that can open a new Query.
+type Factory[Q Query] interface {
+	// New opens a new Query.
+	New() Q
+}
+
 // New returns a new Query with empty Options.
 func New() Query { return query{options: make(options)} }
 

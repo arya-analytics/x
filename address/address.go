@@ -1,8 +1,15 @@
 package address
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type Address string
+
+func Newf(format string, args ...any) Address {
+	return Address(fmt.Sprintf(format, args...))
+}
 
 func (a Address) String() string { return string(a) }
 
@@ -13,12 +20,4 @@ func (a Address) PortString() string {
 
 type Addressable interface {
 	Address() Address
-}
-
-type NotFoundError struct {
-	Address Address
-}
-
-func (n NotFoundError) Error() string {
-	return "address not found: " + string(n.Address)
 }

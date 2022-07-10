@@ -7,7 +7,7 @@ import (
 )
 
 var _ = Describe("Rand", func() {
-	Describe("Map", func() {
+	Describe("ApplySink", func() {
 		var (
 			m map[int]int
 		)
@@ -18,7 +18,7 @@ var _ = Describe("Rand", func() {
 				5: 6,
 			}
 		})
-		Describe("Key", func() {
+		Describe("Name", func() {
 			It("Should return a random key", func() {
 				key := rand.MapKey(m)
 				Expect(key > 0).To(BeTrue())

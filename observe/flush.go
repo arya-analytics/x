@@ -2,6 +2,7 @@ package observe
 
 import (
 	"github.com/arya-analytics/x/kv"
+	"github.com/arya-analytics/x/signal"
 	"time"
 )
 
@@ -20,8 +21,8 @@ type FlushSubscriber[S kv.Flusher] struct {
 	MinInterval time.Duration
 	// LastFlush stores the last time the observable was flushed.
 	LastFlush time.Time
-	// ErrC is used to signal errors.
-	ErrC chan error
+	// Errors is used to signal errors.
+	Errors signal.Errors
 }
 
 // Flush is the handler to bind to the Observable.
@@ -29,12 +30,14 @@ func (f *FlushSubscriber[S]) Flush(state S) {
 	if time.Since(f.LastFlush) < f.MinInterval {
 		return
 	}
-	go func() {
-		err := kv.Flush(f.Store, f.Key, state)
-		if err != nil && f.ErrC != nil {
-			f.ErrC <- err
-		} else {
-			f.LastFlush = time.Now()
-		}
-	}()
+	go f.FlushSync(state)
+}
+
+func (f *FlushSubscriber[S]) FlushSync(state S) {
+	err := kv.Flush(f.Store, f.Key, state)
+	if err != nil && f.Errors != nil {
+		f.Errors.Transient() <- err
+	} else {
+		f.LastFlush = time.Now()
+	}
 }

@@ -17,7 +17,7 @@ import (
 // c := errutil.NewCatchSimple()
 // c.Exec(myFunc1)  // Returns an error
 // c.Exec(myFunc2)
-// fmt.Println(c.ErrC())
+// fmt.Println(c.ResponseErrors())
 // Output:
 // 		error returned by func1
 //
