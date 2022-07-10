@@ -31,7 +31,7 @@ func (s *Sync[T]) Start(ctx signal.Context) <-chan error {
 	errs := make(chan error)
 	c := errutil.NewCatchSimple(errutil.WithHooks(errutil.NewPipeHook(errs)))
 	t := time.NewTicker(s.Interval)
-	ctx.Go(func() error {
+	ctx.Go(func(ctx signal.Context) error {
 		for {
 			select {
 			case <-ctx.Done():

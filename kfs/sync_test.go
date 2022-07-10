@@ -13,7 +13,7 @@ import (
 var _ = Describe("sync", func() {
 
 	It("Should sync the contents of the file to the file system every interval", func() {
-		ctx, cancel := signal.Background()
+		ctx, cancel := signal.TODO()
 		defer cancel()
 		fs, err := kfs.New[int]("testdata", kfs.WithExtensionConfig(".test"), kfs.WithFS(kfs.NewMem()))
 		Expect(err).ToNot(HaveOccurred())
@@ -45,7 +45,7 @@ var _ = Describe("sync", func() {
 	})
 
 	It("Should sync the contents of all of the files on shutdown", func() {
-		ctx, cancel := signal.Background()
+		ctx, cancel := signal.TODO()
 		fs, err := kfs.New[int]("testdata", kfs.WithExtensionConfig(".test"), kfs.WithFS(kfs.NewMem()))
 		Expect(err).ToNot(HaveOccurred())
 		defer Expect(fs.RemoveAll()).To(Succeed())

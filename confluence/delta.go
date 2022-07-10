@@ -4,12 +4,12 @@ import (
 	"github.com/arya-analytics/x/signal"
 )
 
-// Delta is an abstract Segment that reads values from multiple input streams
+// Delta is an abstract Segment that reads values from an input Stream
 // and pipes them to multiple output streams. Delta does not implement the
 // Flow method, and is therefore not usable directly. It should be embedded in a
 // concrete segment.
 type Delta[I, O Value] struct {
-	MultiSink[I]
+	UnarySink[I]
 	AbstractMultiSource[O]
 }
 
@@ -21,7 +21,7 @@ type DeltaMultiplier[V Value] struct{ Delta[V, V] }
 func (d *DeltaMultiplier[V]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachInletCloser(d)
-	d.GoRangeEach(ctx, d.SendToEach, o.Signal...)
+	d.GoRange(ctx, d.SendToEach, o.Signal...)
 }
 
 // DeltaTransformMultiplier reads a value from an input stream, performs a
@@ -35,7 +35,7 @@ type DeltaTransformMultiplier[I, O Value] struct {
 func (d *DeltaTransformMultiplier[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachInletCloser(d)
-	d.GoRangeEach(ctx, d.transformAndMultiply, o.Signal...)
+	d.GoRange(ctx, d.transformAndMultiply, o.Signal...)
 }
 
 func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx signal.Context, i I) error {

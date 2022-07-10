@@ -18,30 +18,31 @@ type Sender[M transport.Message] struct {
 
 // Flow implements Flow.
 func (s *Sender[M]) Flow(ctx signal.Context, opts ...Option) {
-	fo := NewOptions(opts)
-	ctx.Go(func() error {
-		var err error
-		defer func() {
-			err = errors.CombineErrors(s.Sender.CloseSend(), err)
-		}()
-	o:
-		for {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
+	ctx.Go(s.send, NewOptions(opts).Signal...)
+}
+
+func (s *Sender[M]) send(ctx signal.Context) error {
+	var err error
+	defer func() {
+		err = errors.CombineErrors(s.Sender.CloseSend(), err)
+	}()
+o:
+	for {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break o
+		case res, ok := <-s.UnarySink.In.Outlet():
+			if !ok {
 				break o
-			case res, ok := <-s.UnarySink.In.Outlet():
-				if !ok {
-					break o
-				}
-				if sErr := s.Sender.Send(res); sErr != nil {
-					err = sErr
-					break o
-				}
+			}
+			if sErr := s.Sender.Send(res); sErr != nil {
+				err = sErr
+				break o
 			}
 		}
-		return err
-	}, fo.Signal...)
+	}
+	return err
 }
 
 // TransformSender wraps transport.StreamSenderCloser to provide a confluence compatible
@@ -57,35 +58,36 @@ type TransformSender[I Value, M transport.Message] struct {
 
 // Flow implements the Flow interface.
 func (s *TransformSender[I, M]) Flow(ctx signal.Context, opts ...Option) {
-	fo := NewOptions(opts)
-	ctx.Go(func() error {
-		var err error
-		defer func() {
-			err = errors.CombineErrors(s.Sender.CloseSend(), err)
-		}()
-	o:
-		for {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
+	ctx.Go(s.send, NewOptions(opts).Signal...)
+}
+
+func (s *TransformSender[I, M]) send(ctx signal.Context) error {
+	var err error
+	defer func() {
+		err = errors.CombineErrors(s.Sender.CloseSend(), err)
+	}()
+o:
+	for {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break o
+		case res, ok := <-s.UnarySink.In.Outlet():
+			if !ok {
 				break o
-			case res, ok := <-s.UnarySink.In.Outlet():
-				if !ok {
-					break o
-				}
-				tRes, ok, tErr := s.TransformFunc.ApplyTransform(ctx, res)
-				if tErr != nil {
-					err = tErr
-					break o
-				}
-				if sErr := s.Sender.Send(tRes); sErr != nil {
-					err = sErr
-					break o
-				}
+			}
+			tRes, ok, tErr := s.TransformFunc.ApplyTransform(ctx, res)
+			if tErr != nil {
+				err = tErr
+				break o
+			}
+			if sErr := s.Sender.Send(tRes); sErr != nil {
+				err = sErr
+				break o
 			}
 		}
-		return err
-	}, fo.Signal...)
+	}
+	return err
 }
 
 // MultiSender wraps a slice of transport.StreamSender(s) to provide a confluence
@@ -98,32 +100,33 @@ type MultiSender[M transport.Message] struct {
 
 // Flow implements the Flow interface.
 func (m *MultiSender[M]) Flow(ctx signal.Context, opts ...Option) {
-	fo := NewOptions(opts)
-	ctx.Go(func() error {
-		var err error
-		defer func() {
-			err = errors.CombineErrors(m.closeSenders(), err)
-		}()
-	o:
-		for {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
+	ctx.Go(m.send, NewOptions(opts).Signal...)
+}
+
+func (m *MultiSender[M]) send(ctx signal.Context) error {
+	var err error
+	defer func() {
+		err = errors.CombineErrors(m.closeSenders(), err)
+	}()
+o:
+	for {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break o
+		case res, ok := <-m.UnarySink.In.Outlet():
+			if !ok {
 				break o
-			case res, ok := <-m.UnarySink.In.Outlet():
-				if !ok {
+			}
+			for _, sender := range m.Senders {
+				if sErr := sender.Send(res); sErr != nil {
+					err = sErr
 					break o
-				}
-				for _, sender := range m.Senders {
-					if sErr := sender.Send(res); sErr != nil {
-						err = sErr
-						break o
-					}
 				}
 			}
 		}
-		return err
-	}, fo.Signal...)
+	}
+	return err
 }
 
 func (m *MultiSender[M]) closeSenders() error {
@@ -163,35 +166,36 @@ type SwitchSender[M transport.Message] struct {
 }
 
 func (sw *SwitchSender[M]) Flow(ctx signal.Context, opts ...Option) {
-	fo := NewOptions(opts)
-	ctx.Go(func() error {
-		var err error
-		defer func() {
-			err = errors.CombineErrors(sw.Senders.close(), err)
-		}()
-	o:
-		for {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
+	ctx.Go(sw.send, NewOptions(opts).Signal...)
+}
+
+func (sw *SwitchSender[M]) send(ctx signal.Context) error {
+	var err error
+	defer func() {
+		err = errors.CombineErrors(sw.Senders.close(), err)
+	}()
+o:
+	for {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break o
+		case msg, ok := <-sw.In.Outlet():
+			if !ok {
 				break o
-			case msg, ok := <-sw.In.Outlet():
-				if !ok {
-					break o
-				}
-				target, ok, swErr := sw.ApplySwitch(ctx, msg)
-				if !ok || swErr != nil {
-					err = swErr
-					break o
-				}
-				if sErr := sw.Senders.send(target, msg); sErr != nil {
-					err = sErr
-					break o
-				}
+			}
+			target, ok, swErr := sw.ApplySwitch(ctx, msg)
+			if !ok || swErr != nil {
+				err = swErr
+				break o
+			}
+			if sErr := sw.Senders.send(target, msg); sErr != nil {
+				err = sErr
+				break o
 			}
 		}
-		return err
-	}, fo.Signal...)
+	}
+	return err
 }
 
 // BatchSwitchSender wraps a map of transport.StreamSenderCloser to provide a confluence
@@ -205,36 +209,40 @@ type BatchSwitchSender[I, O transport.Message] struct {
 }
 
 func (bsw *BatchSwitchSender[I, O]) Flow(ctx signal.Context, opts ...Option) {
-	addrMap := make(map[address.Address]O)
-	ctx.Go(func() error {
-		var err error
-		defer func() {
-			err = errors.CombineErrors(bsw.Senders.close(), err)
-		}()
-	o:
-		for {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
+	ctx.Go(bsw.send, NewOptions(opts).Signal...)
+}
+
+func (bsw *BatchSwitchSender[I, O]) send(ctx signal.Context) error {
+	var (
+		err     error
+		addrMap = make(map[address.Address]O)
+	)
+	defer func() {
+		err = errors.CombineErrors(bsw.Senders.close(), err)
+	}()
+o:
+	for {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			break o
+		case msg, ok := <-bsw.In.Outlet():
+			if !ok {
 				break o
-			case msg, ok := <-bsw.In.Outlet():
-				if !ok {
+			}
+			if swErr := bsw.ApplySwitch(ctx, msg, addrMap); swErr != nil {
+				err = swErr
+				break o
+			}
+			for target, batch := range addrMap {
+				sErr := bsw.Senders.send(target, batch)
+				delete(addrMap, target)
+				if sErr != nil {
+					err = sErr
 					break o
-				}
-				if swErr := bsw.ApplySwitch(ctx, msg, addrMap); swErr != nil {
-					err = swErr
-					break o
-				}
-				for target, batch := range addrMap {
-					sErr := bsw.Senders.send(target, batch)
-					delete(addrMap, target)
-					if sErr != nil {
-						err = sErr
-						break o
-					}
 				}
 			}
 		}
-		return err
-	}, NewOptions(opts).Signal...)
+	}
+	return err
 }

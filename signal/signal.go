@@ -22,26 +22,37 @@ type Errors interface {
 	Transient() chan error
 }
 
+// WithCancel returns a Context derived from ctx that is canceled by the given cancel
+// function. If any goroutine returns a non-nil error, the Context will be canceled.
 func WithCancel(ctx context.Context, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(ctx)
-	c := newCore(ctx, opts...)
+	c := newCore(ctx, cancel, opts...)
 	return c, func() { cancel(); c.maybeStop() }
 }
 
+// WithTimeout returns a Context derived from ctx that is canceled by the given
+//timeout. If any goroutine returns a non-nil error, the Context will be canceled.
 func WithTimeout(ctx context.Context, d time.Duration, opts ...Option) (Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(ctx, d)
-	c := newCore(ctx, opts...)
+	c := newCore(ctx, cancel, opts...)
 	return c, func() { cancel(); c.maybeStop() }
 }
 
-func Background(opts ...Option) (Context, context.CancelFunc) {
-	return WithCancel(context.Background(), opts...)
+// TODO wraps context.TODO in a Context that can be cancelled. If any goroutine
+// returns a non-nil error, the Context will be cancelled.
+func TODO(opts ...Option) (Context, context.CancelFunc) {
+	return WithCancel(context.TODO(), opts...)
 }
 
-func newCore(ctx context.Context, opts ...Option) *core {
+func newCore(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	opts ...Option,
+) *core {
 	o := newOptions(opts...)
 	c := &core{
 		Context:   ctx,
+		cancel:    cancel,
 		options:   o,
 		transient: make(chan error, *o.transientCap),
 		numForked: &atomicx.Int32Counter{},
@@ -54,6 +65,7 @@ func newCore(ctx context.Context, opts ...Option) *core {
 type core struct {
 	*options
 	context.Context
+	cancel context.CancelFunc
 	// transient receives errors from goroutines that should not result in the
 	// cancellation of the routine, but do need to be reported to the caller.
 	transient chan error
@@ -68,13 +80,12 @@ type core struct {
 	// numExited is the number of goroutines that have exited.
 	// This is mutex protected by atomic.AddInt32.
 	numExited *atomicx.Int32Counter
-	eg        errgroup.Group
+	// wrapped is used to start and signal errors to goroutines.
+	wrapped errgroup.Group
 }
 
 // Transient implements the Errors interface.
 func (c *core) Transient() chan error { return c.transient }
-
-func (c *core) numRunning() int32 { return c.numForked.Value() - c.numExited.Value() }
 
 func runDeferals(deferals []func()) {
 	for _, f := range deferals {

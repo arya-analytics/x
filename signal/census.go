@@ -12,6 +12,6 @@ type Census interface {
 
 func (c *core) NumForked() int32 { return c.numForked.Value() }
 
-func (c *core) NumRunning() int32 { return c.numRunning() }
-
 func (c *core) NumExited() int32 { return c.numExited.Value() }
+
+func (c *core) NumRunning() int32 { return c.NumForked() - c.NumExited() }

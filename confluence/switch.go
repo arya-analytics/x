@@ -3,7 +3,6 @@ package confluence
 import (
 	"github.com/arya-analytics/x/address"
 	"github.com/arya-analytics/x/signal"
-	"golang.org/x/sync/errgroup"
 )
 
 type SwitchFunc[V Value] struct {
@@ -17,7 +16,7 @@ type SwitchFunc[V Value] struct {
 // and writes the value to the matching Outlet.
 type Switch[V Value] struct {
 	SwitchFunc[V]
-	MultiSink[V]
+	UnarySink[V]
 	AbstractAddressableSource[V]
 }
 
@@ -27,7 +26,7 @@ type Switch[V Value] struct {
 func (sw *Switch[V]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(sw)
-	sw.GoRangeEach(ctx, sw._switch, fo.Signal...)
+	sw.GoRange(ctx, sw._switch, fo.Signal...)
 }
 
 func (sw *Switch[V]) _switch(ctx signal.Context, v V) error {
@@ -51,8 +50,9 @@ type BatchSwitchFunc[I, O Value] struct {
 // need to be routed to different locations.
 type BatchSwitch[I, O Value] struct {
 	BatchSwitchFunc[I, O]
-	MultiSink[I]
+	UnarySink[I]
 	AbstractAddressableSource[O]
+	addrMap map[address.Address]O
 }
 
 // Flow implements the Flow interface, reading batches from the Outlet, resolving
@@ -61,44 +61,22 @@ type BatchSwitch[I, O Value] struct {
 func (bsw *BatchSwitch[I, O]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(bsw)
-	ctx.Go(func() error {
-		wg := errgroup.Group{}
-		for _, inlet := range bsw.In {
-			_inlet := inlet
-			wg.Go(func() error {
-				addrMap := make(map[address.Address]O)
-				for {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case v, ok := <-_inlet.Outlet():
-						if !ok {
-							return nil
-						}
-						if err := bsw._switch(ctx, v, addrMap); err != nil {
-							return err
-						}
-					}
-				}
-			})
-		}
-		return wg.Wait()
-	})
+	bsw.addrMap = make(map[address.Address]O)
+	bsw.GoRange(ctx, bsw._switch, fo.Signal...)
 }
 
 func (bsw *BatchSwitch[I, O]) _switch(
 	ctx signal.Context,
 	v I,
-	addrMap map[address.Address]O,
 ) error {
-	if err := bsw.BatchSwitchFunc.ApplySwitch(ctx, v, addrMap); err != nil {
+	if err := bsw.BatchSwitchFunc.ApplySwitch(ctx, v, bsw.addrMap); err != nil {
 		return err
 	}
-	for target, batch := range addrMap {
+	for target, batch := range bsw.addrMap {
 		if err := bsw.Send(target, batch); err != nil {
 			return err
 		}
-		delete(addrMap, target)
+		delete(bsw.addrMap, target)
 	}
 	return nil
 }

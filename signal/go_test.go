@@ -13,7 +13,7 @@ var _ = Describe("Go", func() {
 	Describe("GoRange", func() {
 		It("Should range through the value of a channel before shutting down", func() {
 			ch := make(chan int)
-			ctx, cancel := signal.WithCancel(context.Background())
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			resV := make([]int, 2)
 			signal.GoRange(ctx, ch, func(ctx signal.Context, v int) error {
@@ -28,7 +28,7 @@ var _ = Describe("Go", func() {
 		})
 		It("Should shut down the routine when a non-nil error is returned", func() {
 			ch := make(chan int)
-			ctx, cancel := signal.WithCancel(context.Background())
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			resV := make([]int, 2)
 			signal.GoRange(ctx, ch, func(ctx signal.Context, v int) error {
@@ -44,7 +44,7 @@ var _ = Describe("Go", func() {
 		})
 		It("Should shut down the routine when the context is cancelled", func() {
 			ch := make(chan int, 3)
-			ctx, cancel := signal.WithCancel(context.Background())
+			ctx, cancel := signal.TODO()
 			resV := make(chan int, 2)
 			signal.GoRange(ctx, ch, func(ctx signal.Context, v int) error {
 				resV <- v
@@ -60,7 +60,7 @@ var _ = Describe("Go", func() {
 	})
 	Describe("GoTick", func() {
 		It("Should execute the function every time the ticker fires", func() {
-			ctx, cancel := signal.WithTimeout(context.Background(), 1250*time.Microsecond)
+			ctx, cancel := signal.WithTimeout(context.TODO(), 1250*time.Microsecond)
 			defer cancel()
 			count := 0
 			signal.GoTick(ctx, 500*time.Microsecond, func(ctx signal.Context, t time.Time) error {

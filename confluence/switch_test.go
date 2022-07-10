@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("ApplySink", func() {
+var _ = Describe("Switch", func() {
 	Context("Single Inlet", func() {
 		var (
 			ctx    signal.Context
@@ -20,7 +20,7 @@ var _ = Describe("ApplySink", func() {
 			sw     *confluence.Switch[int]
 		)
 		BeforeEach(func() {
-			ctx, cancel = signal.Background()
+			ctx, cancel = signal.TODO()
 			input = confluence.NewStream[int](3)
 			double = confluence.NewStream[int](3)
 			single = confluence.NewStream[int](3)
@@ -54,33 +54,5 @@ var _ = Describe("ApplySink", func() {
 			_, ok := <-double.Outlet()
 			Expect(ok).To(BeFalse())
 		})
-	})
-	It("Should route values from multiple outlets correctly", func() {
-		stream1 := confluence.NewStream[int](3)
-		stream2 := confluence.NewStream[int](3)
-		single := confluence.NewStream[int](5)
-		single.SetInletAddress("single")
-		sw := &confluence.Switch[int]{}
-		sw.ApplySwitch = func(ctx signal.Context, i int) (address.Address, bool, error) {
-			return "single", true, nil
-		}
-		sw.InFrom(stream1)
-		sw.InFrom(stream2)
-		sw.OutTo(single)
-		ctx, cancel := signal.WithCancel(context.Background())
-		defer cancel()
-		sw.Flow(ctx, confluence.CloseInletsOnExit())
-		stream1.Inlet() <- 1
-		stream1.Inlet() <- 2
-		stream2.Inlet() <- 3
-		stream2.Inlet() <- 4
-		stream2.Close()
-		stream1.Close()
-		Expect(ctx.Wait()).To(Succeed())
-		count := 0
-		for range single.Outlet() {
-			count++
-		}
-		Expect(count).To(Equal(4))
 	})
 })

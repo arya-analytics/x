@@ -147,7 +147,7 @@ var _ = Describe("Catch", func() {
 			c.Exec(func() error {
 				return errors.New("not random error")
 			})
-			Expect(c.Error()).To(Equal(errors.New("random error")))
+			Expect(errors.Is(c.Error(), errors.New("random error"))).To(BeTrue())
 		})
 	})
 })

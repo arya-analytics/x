@@ -15,9 +15,6 @@ const (
 	// StitchWeave is a stitching method that means the router will create a stream for each unique combination of
 	// input (from) and output (to) segments.
 	StitchWeave
-	// StitchDivergent is a stitching where a router creates a stream for each input (from) segment and connects it
-	// to all output (to) segments.
-	StitchDivergent
 	// StitchConvergent is a stitching where a router creates a stream for each output (to) segment and connects it
 	// to all input (from) segments.
 	StitchConvergent
@@ -67,8 +64,6 @@ func (m MultiRouter[V]) Route(p *Pipeline) error {
 		return m.linear(p)
 	case StitchWeave:
 		return m.weave(p)
-	case StitchDivergent:
-		return m.divergent(p)
 	case StitchConvergent:
 		return m.convergent(p)
 	}
@@ -99,14 +94,6 @@ func (m MultiRouter[V]) weave(p *Pipeline) error {
 	})
 }
 
-func (m MultiRouter[V]) divergent(p *Pipeline) error {
-	return m.iterSources(func(from address.Address) error {
-		stream := cfs.NewStream[V](m.Capacity)
-		return m.iterSinks(func(to address.Address) error {
-			return route(p, from, to, stream)
-		})
-	})
-}
 func (m MultiRouter[V]) convergent(p *Pipeline) error {
 	return m.iterSinks(func(to address.Address) error {
 		stream := cfs.NewStream[V](m.Capacity)

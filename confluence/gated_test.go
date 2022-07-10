@@ -25,7 +25,7 @@ var _ = Describe("Gated", func() {
 	It("Should prevent a segment from flowing if the gate is closed", func() {
 		s := &ungatedSegment{}
 		gated := confluence.Gate[int, int](s)
-		ctx, cancel := signal.Background()
+		ctx, cancel := signal.TODO()
 		defer cancel()
 		gated.Flow(ctx)
 		Expect(s.flowCount).To(Equal(1))
@@ -35,7 +35,7 @@ var _ = Describe("Gated", func() {
 	Describe("gatedSource", func() {
 		t := &ungatedSegment{}
 		gated := confluence.GateSource[int](t)
-		ctx, cancel := signal.Background()
+		ctx, cancel := signal.TODO()
 		defer cancel()
 		gated.Flow(ctx)
 		Expect(t.flowCount).To(Equal(1))
@@ -45,7 +45,7 @@ var _ = Describe("Gated", func() {
 	Describe("gatedSink", func() {
 		t := &ungatedSegment{}
 		gated := confluence.GateSink[int](t)
-		ctx, cancel := signal.Background()
+		ctx, cancel := signal.TODO()
 		defer cancel()
 		gated.Flow(ctx)
 		Expect(t.flowCount).To(Equal(1))

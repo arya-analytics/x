@@ -87,61 +87,23 @@ var _ = Describe("Router", func() {
 
 		Describe("StitchWeave", func() {
 			It("Should wire a separate channel for each address pair", func() {
-				sourceOne := &confluence.Switch[int]{}
-				sourceTwo := &confluence.Switch[int]{}
-				sinkOne := &confluence.MultiSink[int]{}
-				sinkTwo := &confluence.MultiSink[int]{}
-				plumber.SetSource[int](p, "sourceOne", sourceOne)
-				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
+				source := &confluence.Switch[int]{}
+				sinkOne := &confluence.UnarySink[int]{}
+				sinkTwo := &confluence.UnarySink[int]{}
+				plumber.SetSource[int](p, "source", source)
 				plumber.SetSink[int](p, "sinkOne", sinkOne)
 				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
 				router := &plumber.MultiRouter[int]{
-					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
+					SourceTargets: []address.Address{"source"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
 					Stitch:        plumber.StitchWeave,
 					Capacity:      1,
 				}
 				Expect(router.Route(p)).To(Succeed())
-				sinkOneOutlets := parseOutletAddrMap(sinkOne.In)
-				sinkTwoOutlets := parseOutletAddrMap(sinkTwo.In)
-				sourceOne.Out["sinkOne"].Inlet() <- 1
-				Expect(sinkOneOutlets["sourceOne"].Outlet()).To(Receive(Equal(1)))
-				sourceTwo.Out["sinkOne"].Inlet() <- 1
-				Expect(sinkOneOutlets["sourceTwo"].Outlet()).To(Receive(Equal(1)))
-				sourceOne.Out["sinkTwo"].Inlet() <- 1
-				Expect(sinkTwoOutlets["sourceOne"].Outlet()).To(Receive(Equal(1)))
-				sourceTwo.Out["sinkTwo"].Inlet() <- 1
-				Expect(sinkTwoOutlets["sourceTwo"].Outlet()).To(Receive(Equal(1)))
-			})
-		})
-
-		Describe("StitchDivergent", func() {
-			It("Should wire a separate for each source", func() {
-				sourceOne := &confluence.Emitter[int]{}
-				sourceTwo := &confluence.Emitter[int]{}
-				sinkOne := &confluence.MultiSink[int]{}
-				sinkTwo := &confluence.MultiSink[int]{}
-				plumber.SetSource[int](p, "sourceOne", sourceOne)
-				plumber.SetSource[int](p, "sourceTwo", sourceTwo)
-				plumber.SetSink[int](p, "sinkOne", sinkOne)
-				plumber.SetSink[int](p, "sinkTwo", sinkTwo)
-				router := &plumber.MultiRouter[int]{
-					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
-					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
-					Stitch:        plumber.StitchDivergent,
-					Capacity:      1,
-				}
-				Expect(router.Route(p)).To(Succeed())
-				sinkOneOutlets := parseOutletAddrMap(sinkOne.In)
-				sinkTwoOutlets := parseOutletAddrMap(sinkTwo.In)
-				sourceOne.Out.Inlet() <- 1
-				Expect(sinkOneOutlets["sourceOne"].Outlet()).To(Receive(Equal(1)))
-				sourceOne.Out.Inlet() <- 1
-				Expect(sinkTwoOutlets["sourceOne"].Outlet()).To(Receive(Equal(1)))
-				sourceTwo.Out.Inlet() <- 1
-				Expect(sinkOneOutlets["sourceTwo"].Outlet()).To(Receive(Equal(1)))
-				sourceTwo.Out.Inlet() <- 1
-				Expect(sinkTwoOutlets["sourceTwo"].Outlet()).To(Receive(Equal(1)))
+				source.Out["sinkOne"].Inlet() <- 1
+				Expect(sinkOne.In.Outlet()).To(Receive(Equal(1)))
+				source.Out["sinkTwo"].Inlet() <- 1
+				Expect(sinkTwo.In.Outlet()).To(Receive(Equal(1)))
 			})
 		})
 

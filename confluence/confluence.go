@@ -131,7 +131,7 @@ type TransformFunc[I, O Value] struct {
 // Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
 // and an addressable Inlet. These addresses are best represented as unique locations where values
 // are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
-// Segments, as long as those segments perform are replicates of one another..
+// Segments, as long as those segments perform are replicates of one another.
 type Stream[V Value] interface {
 	Inlet[V]
 	Outlet[V]

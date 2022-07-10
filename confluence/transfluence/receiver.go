@@ -18,23 +18,25 @@ type Receiver[M transport.Message] struct {
 func (r *Receiver[M]) Flow(ctx signal.Context, opts ...Option) {
 	fo := NewOptions(opts)
 	fo.AttachInletCloser(r)
-	ctx.Go(func() error {
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				msg, rErr := r.Receiver.Receive()
-				if errors.Is(rErr, transport.EOF) {
-					return nil
-				}
-				if rErr != nil {
-					return rErr
-				}
-				r.Out.Inlet() <- msg
+	ctx.Go(r.receive, fo.Signal...)
+}
+
+func (r *Receiver[M]) receive(ctx signal.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			msg, rErr := r.Receiver.Receive()
+			if errors.Is(rErr, transport.EOF) {
+				return nil
 			}
+			if rErr != nil {
+				return rErr
+			}
+			r.Out.Inlet() <- msg
 		}
-	}, fo.Signal...)
+	}
 }
 
 type TransformReceiver[I Value, M transport.Message] struct {
@@ -45,31 +47,33 @@ type TransformReceiver[I Value, M transport.Message] struct {
 
 // Flow implements Flow.
 func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...Option) {
-	fo := NewOptions(opts)
-	fo.AttachInletCloser(r)
-	ctx.Go(func() error {
-	o:
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				res, err := r.Receiver.Receive()
-				if errors.Is(err, transport.EOF) {
-					return nil
-				}
-				if err != nil {
-					return err
-				}
-				tRes, ok, err := r.ApplyTransform(ctx, res)
-				if !ok {
-					continue o
-				}
-				if err != nil {
-					return err
-				}
-				r.Out.Inlet() <- tRes
+	o := NewOptions(opts)
+	o.AttachInletCloser(r)
+	ctx.Go(r.receive, o.Signal...)
+}
+
+func (r *TransformReceiver[I, M]) receive(ctx signal.Context) error {
+o:
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			res, err := r.Receiver.Receive()
+			if errors.Is(err, transport.EOF) {
+				return nil
 			}
+			if err != nil {
+				return err
+			}
+			tRes, ok, err := r.ApplyTransform(ctx, res)
+			if !ok {
+				continue o
+			}
+			if err != nil {
+				return err
+			}
+			r.Out.Inlet() <- tRes
 		}
-	}, fo.Signal...)
+	}
 }

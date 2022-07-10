@@ -18,7 +18,8 @@ var _ = Describe("Convert", func() {
 		}}
 	})
 	It("Should convert an error", func() {
-		Expect(c.Exec(errors.New("not random error"))).To(Equal(errors.New("random error")))
+		Expect(errors.Is(c.Exec(errors.New("not random error")),
+			errors.New("random error"))).To(BeTrue())
 	})
 	It("Should return nil if the submitted error is nil", func() {
 		Expect(c.Exec(nil)).To(BeNil())

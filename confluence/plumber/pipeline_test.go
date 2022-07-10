@@ -71,7 +71,7 @@ var _ = Describe("Pipeline", func() {
 			seg.InFrom(input)
 			seg.OutTo(output)
 
-			ctx, cancel := signal.Background()
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			seg.Flow(ctx)
 
@@ -178,7 +178,7 @@ var _ = Describe("Pipeline", func() {
 				Fail("Failed to construct pipeline: " + catch.Error().Error())
 			}
 
-			ctx, cancel := signal.Background()
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			pipe.Flow(ctx, confluence.CloseInletsOnExit())
 

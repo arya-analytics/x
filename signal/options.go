@@ -6,9 +6,7 @@ type GoOption func(o *goOptions)
 
 func Defer(f func()) GoOption { return func(o *goOptions) { o.deferals = append(o.deferals, f) } }
 
-func WithKey(key string) GoOption {
-	return func(o *goOptions) { o.key = key }
-}
+func WithKey(key string) GoOption { return func(o *goOptions) { o.key = key } }
 
 type goOptions struct {
 	key      string
@@ -26,13 +24,6 @@ func newGoOptions(opts []GoOption) *goOptions {
 // |||||| OPTIONS ||||||
 
 type Option func(o *options)
-
-func WithBufferCap(transient, fatal uint) Option {
-	return func(o *options) {
-		o.transientCap = &transient
-		o.fatalCap = &fatal
-	}
-}
 
 type options struct {
 	transientCap  *uint

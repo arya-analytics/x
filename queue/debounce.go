@@ -23,7 +23,7 @@ type Debounce[V confluence.Value] struct {
 // Flow starts the queue.
 func (d *Debounce[V]) Flow(ctx signal.Context, opts ...confluence.Option) {
 	fo := confluence.NewOptions(opts)
-	ctx.Go(func() error {
+	ctx.Go(func(ctx signal.Context) error {
 		var (
 			t = time.NewTicker(d.Config.Interval)
 		)
@@ -34,7 +34,10 @@ func (d *Debounce[V]) Flow(ctx signal.Context, opts ...confluence.Option) {
 				return ctx.Err()
 			default:
 			}
-			values := d.fill(t.C)
+			values, ok := d.fill(t.C)
+			if !ok {
+				return nil
+			}
 			if len(values) == 0 {
 				continue
 			}
@@ -43,17 +46,20 @@ func (d *Debounce[V]) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, fo.Signal...)
 }
 
-func (d *Debounce[V]) fill(C <-chan time.Time) []V {
+func (d *Debounce[V]) fill(C <-chan time.Time) ([]V, bool) {
 	ops := make([]V, 0, d.Config.Threshold)
 	for {
 		select {
-		case values := <-d.In.Outlet():
+		case values, ok := <-d.In.Outlet():
+			if !ok {
+				return ops, false
+			}
 			ops = append(ops, values...)
 			if len(ops) >= d.Config.Threshold {
-				return ops
+				return ops, true
 			}
 		case <-C:
-			return ops
+			return ops, true
 		}
 	}
 }

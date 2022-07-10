@@ -10,13 +10,11 @@ import (
 var _ = Describe("Delta", func() {
 	var (
 		inputOne  confluence.Stream[int]
-		inputTwo  confluence.Stream[int]
 		outputOne confluence.Stream[int]
 		outputTwo confluence.Stream[int]
 	)
 	BeforeEach(func() {
 		inputOne = confluence.NewStream[int](1)
-		inputTwo = confluence.NewStream[int](1)
 		outputOne = confluence.NewStream[int](0)
 		outputOne.SetInletAddress("outputOne")
 		outputTwo = confluence.NewStream[int](0)
@@ -26,8 +24,8 @@ var _ = Describe("Delta", func() {
 		It("Should multiply input values to outputs", func() {
 			delta := &confluence.DeltaMultiplier[int]{}
 			delta.OutTo(outputOne, outputTwo)
-			delta.InFrom(inputOne, inputTwo)
-			ctx, cancel := signal.Background()
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			delta.Flow(ctx)
 			inputOne.Inlet() <- 1
@@ -40,7 +38,7 @@ var _ = Describe("Delta", func() {
 			delta := &confluence.DeltaMultiplier[int]{}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.Background()
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			delta.Flow(ctx, confluence.CloseInletsOnExit())
 			inputOne.Inlet() <- 1
@@ -58,8 +56,8 @@ var _ = Describe("Delta", func() {
 				return v * 2, true, nil
 			}
 			delta.OutTo(outputOne, outputTwo)
-			delta.InFrom(inputOne, inputTwo)
-			ctx, cancel := signal.Background()
+			delta.InFrom(inputOne)
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			delta.Flow(ctx)
 			inputOne.Inlet() <- 1
@@ -76,7 +74,7 @@ var _ = Describe("Delta", func() {
 			}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.Background()
+			ctx, cancel := signal.TODO()
 			defer cancel()
 			delta.Flow(ctx, confluence.CloseInletsOnExit())
 			inputOne.Inlet() <- 1

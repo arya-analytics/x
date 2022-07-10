@@ -8,16 +8,13 @@ type WaitGroup interface {
 	// if no goroutines are running. WaitOnAll. is NOT safe to call concurrently
 	// with any other wait methods.
 	Wait() error
-	// Stopped returns a channel that is closed when the context is canceled and all
+	// Stopped returns a channel that is closed when the context is canceled AND all
 	// running goroutines have exited.
 	Stopped() <-chan struct{}
-	AnyExited() bool
 }
 
 // Wait implements the WaitGroup interface.
-func (c *core) Wait() error { return c.eg.Wait() }
-
-func (c *core) AnyExited() bool { return c.NumExited() > 0 }
+func (c *core) Wait() error { return c.wrapped.Wait() }
 
 // Stopped implements the WaitGroup interface.
 func (c *core) Stopped() <-chan struct{} {
