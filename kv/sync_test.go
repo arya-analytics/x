@@ -25,7 +25,7 @@ func (f *flushLoader) Load(r io.Reader) error {
 
 var _ = Describe("SendSync", Ordered, func() {
 	var (
-		kve kv.KV
+		kve kv.DB
 	)
 	BeforeAll(func() {
 		db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})

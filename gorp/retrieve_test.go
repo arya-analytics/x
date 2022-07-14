@@ -9,10 +9,10 @@ import (
 	"github.com/arya-analytics/x/gorp"
 )
 
-var _ = Describe("Retrieve", func() {
+var _ = Describe("getAttributes", func() {
 	var (
 		db      *gorp.DB
-		kv      kv.KV
+		kv      kv.DB
 		entries []entry
 	)
 	BeforeEach(func() {

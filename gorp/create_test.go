@@ -20,7 +20,7 @@ func (m entry) SetOptions() []interface{} { return nil }
 var _ = Describe("Create", func() {
 	var (
 		db *gorp.DB
-		kv kv.KV
+		kv kv.DB
 	)
 	BeforeEach(func() {
 		kv = memkv.Open()

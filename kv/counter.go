@@ -7,17 +7,17 @@ import (
 	"io"
 )
 
-// PersistedCounter implements a simple counter that writes its value to a KV store. To create a new PersistedCounter,
+// PersistedCounter implements a simple counter that writes its value to a DB store. To create a new PersistedCounter,
 // call NewPersistedCounter.
 type PersistedCounter struct {
-	kve   KV
+	kve   DB
 	key   []byte
 	value int64
 }
 
 // NewPersistedCounter opens or creates a persisted counter at the given key. If the counter value is found in storage,
 // sets it in internal state. If the counter value is not found in storage, sets the value to 0.
-func NewPersistedCounter(kv KV, key []byte) (*PersistedCounter, error) {
+func NewPersistedCounter(kv DB, key []byte) (*PersistedCounter, error) {
 	c := &PersistedCounter{kve: kv, key: key}
 	err := Load(kv, c.key, c)
 	if errors.Is(err, pebble.ErrNotFound) {

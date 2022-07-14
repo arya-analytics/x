@@ -14,7 +14,7 @@ type FlushSubscriber[S kv.Flusher] struct {
 	// Key is the key to flush the contents of the observable into.
 	Key []byte
 	// Store is the store to flush the contents of the observable into.
-	Store kv.KV
+	Store kv.DB
 	// MinInterval specifies the minimum interval between flushes. If the observable
 	// updates more quickly than min interval, the FlushSubscriber will not flush the
 	// contents.

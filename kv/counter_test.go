@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Counter", Ordered, func() {
 	var (
-		kve kv.KV
+		kve kv.DB
 	)
 	BeforeAll(func() {
 		db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})

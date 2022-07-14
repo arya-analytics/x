@@ -1,5 +1,5 @@
 // Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that implements
-// the kv.KV interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
+// the kv.DB interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
 package pebblekv
 
 import (
@@ -9,56 +9,61 @@ import (
 
 type pebbleKV struct{ *pebble.DB }
 
-// Wrap wraps a pebble.DB to satisfy the kv.KV interface.
-func Wrap(db *pebble.DB) kvc.KV { return &pebbleKV{DB: db} }
+var defaultWriteOpts = pebble.NoSync
 
-// Get implements the kv.KV interface.
-func (kv pebbleKV) Get(key []byte, opts ...interface{}) ([]byte, error) {
-	v, c, err := kv.DB.Get(key)
+// Wrap wraps a pebble.DB to satisfy the kv.DB interface.
+func Wrap(db *pebble.DB) kvc.DB { return &pebbleKV{DB: db} }
+
+// Get implements the kv.DB interface.
+func (db pebbleKV) Get(key []byte, opts ...interface{}) ([]byte, error) {
+	return get(db.DB, key)
+}
+
+// Set implements the kv.DB interface.
+func (db pebbleKV) Set(key []byte, value []byte, opts ...interface{}) error {
+	return db.DB.Set(key, value, defaultWriteOpts)
+}
+
+// Delete implements the kv.DB interface.
+func (db pebbleKV) Delete(key []byte) error { return db.DB.Delete(key, pebble.NoSync) }
+
+// Close implements the kv.DB interface.
+func (db pebbleKV) Close() error { return db.DB.Close() }
+
+// NewIterator implements the kv.DB interface.
+func (db pebbleKV) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+	return db.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
+}
+
+func (db pebbleKV) NewBatch() kvc.Batch {
+	return batch{db.DB.NewBatch()}
+}
+
+// String implements the kv.DB interface.
+func (db pebbleKV) String() string { return "pebbleKV" }
+
+type batch struct{ *pebble.Batch }
+
+func (b batch) Set(key []byte, value []byte, opts ...interface{}) error {
+	return b.Batch.Set(key, value, defaultWriteOpts)
+}
+
+func (b batch) Get(key []byte, opts ...interface{}) ([]byte, error) {
+	return get(b.Batch, key)
+}
+
+func (b batch) Delete(key []byte) error { return b.Batch.Delete(key, defaultWriteOpts) }
+
+func (b batch) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
+	return b.Batch.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
+}
+
+func (b batch) Commit(opts ...interface{}) error { return b.Batch.Commit(defaultWriteOpts) }
+
+func get(reader pebble.Reader, key []byte) ([]byte, error) {
+	v, c, err := reader.Get(key)
 	if err != nil {
 		return v, err
 	}
 	return v, c.Close()
 }
-
-// Set implements the kv.KV interface.
-func (kv pebbleKV) Set(key []byte, value []byte, opts ...interface{}) error {
-	return kv.DB.Set(key, value, pebble.NoSync)
-}
-
-// Delete implements the kv.KV interface.
-func (kv pebbleKV) Delete(key []byte) error { return kv.DB.Delete(key, pebble.NoSync) }
-
-// Close implements the kv.KV interface.
-func (kv pebbleKV) Close() error { return kv.DB.Close() }
-
-// IterPrefix implements the kv.KV interface.
-func (kv pebbleKV) IterPrefix(prefix []byte) kvc.Iterator {
-	upper := func(b []byte) []byte {
-		end := make([]byte, len(b))
-		copy(end, b)
-		for i := len(end) - 1; i >= 0; i-- {
-			end[i] = end[i] + 1
-			if end[i] != 0 {
-				return end[:i+1]
-			}
-		}
-		return nil
-	}
-	opts := func(prefix []byte) *pebble.IterOptions {
-		return &pebble.IterOptions{LowerBound: prefix, UpperBound: upper(prefix)}
-	}
-	return kv.DB.NewIter(opts(prefix))
-}
-
-// IterRange implements the kv.KV interface.
-func (kv pebbleKV) IterRange(start, end []byte) kvc.Iterator {
-	return kv.DB.NewIter(&pebble.IterOptions{LowerBound: start, UpperBound: end})
-}
-
-func (kv pebbleKV) NewIterator(opts kvc.IterOptions) kvc.Iterator {
-	return kv.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
-}
-
-// String implements the kv.KV interface.
-func (kv pebbleKV) String() string { return "pebbleKV" }

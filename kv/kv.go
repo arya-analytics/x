@@ -2,8 +2,8 @@
 // as well as basic read-iteration. This package should be used as a boundary for separating an application from a
 // specific storage implementation.
 //
-// For a general implementation of KV, see the pebblekv package.
-// For an in-memory implementation of KV, see the memkv package.
+// For a general implementation of DB, see the pebblekv package.
+// For an in-memory implementation of DB, see the memkv package.
 //
 package kv
 
@@ -12,23 +12,17 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
-// |||||| ENGINE ||||||
-
-// ErrNotFound is returned when a key is not found in the KV store.
-var ErrNotFound = pebble.ErrNotFound
+// NotFound is returned when a key is not found in the DB store.
+var NotFound = pebble.ErrNotFound
 
 type IterValidityState = pebble.IterValidityState
-
-type IterOptions struct {
-	LowerBound []byte
-	UpperBound []byte
-}
 
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
 	Get(key []byte, opts ...interface{}) ([]byte, error)
-	IteratorEngine
+	// NewIterator returns an Iterator using the given IteratorOptions.
+	NewIterator(opts IteratorOptions) Iterator
 }
 
 // Writer is a writeable key-value store.
@@ -39,41 +33,23 @@ type Writer interface {
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
 	Delete(key []byte) error
+	// NewBatch returns a read-write batch. Any reads on the batch will read both from
+	// the batch and the DB. If the batch is committed it will be applied to the DB.
+	NewBatch() Batch
 }
 
 // Closer is a closeable key-value store, which blocks until all pending
 // operations have persisted to disk.
 type Closer interface {
-	// Close closes the KV store.
+	// Close closes the DB.
 	Close() error
 }
 
-// KV represents a general key-value store.
-type KV interface {
+// DB represents a general key-value store.
+type DB interface {
 	Writer
 	Reader
 	Closer
-	// Stringer returns a string description of the KV. Used for logging and configuration.
+	// Stringer returns a string description of the DB. Used for logging and configuration.
 	fmt.Stringer
-}
-
-type IteratorEngine interface {
-	IterPrefix(prefix []byte) Iterator
-	IterRange(start []byte, end []byte) Iterator
-	NewIterator(opts IterOptions) Iterator
-}
-
-type Iterator interface {
-	First() bool
-	Last() bool
-	Next() bool
-	Prev() bool
-	NextWithLimit(limit []byte) IterValidityState
-	Key() []byte
-	Valid() bool
-	Value() []byte
-	Close() error
-	Error() error
-	SeekLT(key []byte) bool
-	SeekGE(key []byte) bool
 }

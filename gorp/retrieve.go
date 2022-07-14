@@ -186,7 +186,10 @@ func (r *retrieve[K, E]) whereKeys(q query.Query) error {
 	}
 	for _, key := range byteKeys {
 		b, err := r.kv.Get(append(prefix, key...))
-		if err == kv.ErrNotFound {
+		if err == kv.NotFound {
+			if len(keys) != 0 {
+				return query.NotFound
+			}
 			continue
 		}
 		if err != nil {
