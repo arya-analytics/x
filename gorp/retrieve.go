@@ -40,10 +40,10 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] { setEntries[K, E](
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] { setEntry[K, E](r, entry); return r }
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
-func (r Retrieve[K, E]) Exec(db *DB) error { return (&retrieve[K, E]{DB: db}).Exec(r) }
+func (r Retrieve[K, E]) Exec(txn Txn) error { return (&retrieve[K, E]{Txn: txn}).Exec(r) }
 
-func (r Retrieve[K, E]) Exists(db *DB) (bool, error) {
-	return (&retrieve[K, E]{DB: db}).Exists(r)
+func (r Retrieve[K, E]) Exists(txn Txn) (bool, error) {
+	return (&retrieve[K, E]{Txn: txn}).Exists(r)
 }
 
 // |||||| FILTERS ||||||
@@ -150,7 +150,7 @@ func getWhereKeys[K Key](q query.Query) (whereKeys[K], bool) {
 
 // |||||| EXECUTOR ||||||
 
-type retrieve[K Key, E Entry[K]] struct{ *DB }
+type retrieve[K Key, E Entry[K]] struct{ Txn }
 
 func (r *retrieve[K, E]) Exec(q query.Query) error {
 	if _, ok := getWhereKeys[K](q); ok {
@@ -174,18 +174,19 @@ func (r *retrieve[K, E]) Exists(q query.Query) (bool, error) {
 }
 
 func (r *retrieve[K, E]) whereKeys(q query.Query) error {
+	opts := r.options()
 	var (
 		keys, _ = getWhereKeys[K](q)
 		f       = getFilters[K, E](q)
 		entries = getEntriesOpt[K, E](q)
-		prefix  = typePrefix[K, E](r.DB, r.encoder)
+		prefix  = typePrefix[K, E](opts)
 	)
-	byteKeys, err := keys.Bytes(r.encoder)
+	byteKeys, err := keys.Bytes(opts.encoder)
 	if err != nil {
 		return err
 	}
 	for _, key := range byteKeys {
-		b, err := r.kv.Get(append(prefix, key...))
+		b, err := r.Get(append(prefix, key...))
 		if err == kv.NotFound {
 			if len(keys) != 0 {
 				return query.NotFound
@@ -196,7 +197,7 @@ func (r *retrieve[K, E]) whereKeys(q query.Query) error {
 			return err
 		}
 		var entry E
-		if err = r.decoder.Decode(b, &entry); err != nil {
+		if err = opts.decoder.Decode(b, &entry); err != nil {
 			return err
 		}
 		if f.exec(entry) {
@@ -207,15 +208,15 @@ func (r *retrieve[K, E]) whereKeys(q query.Query) error {
 }
 
 func (r *retrieve[K, E]) filter(q query.Query) error {
+	opts := r.options()
 	var (
 		f       = getFilters[K, E](q)
 		entries = getEntriesOpt[K, E](q)
-		prefix  = typePrefix[K, E](r.DB, r.encoder)
-		iter    = r.kv.IterPrefix(prefix)
+		iter    = r.NewIterator(kv.PrefixIter(typePrefix[K, E](opts)))
 	)
 	for iter.First(); iter.Valid(); iter.Next() {
 		var entry E
-		if err := r.decoder.Decode(iter.Value(), &entry); err != nil {
+		if err := opts.decoder.Decode(iter.Value(), &entry); err != nil {
 			return errors.Wrap(err, "failed to decode entry")
 		}
 		if f.exec(entry) {

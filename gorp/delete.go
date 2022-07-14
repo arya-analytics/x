@@ -16,28 +16,29 @@ func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
 	return d
 }
 
-func (d Delete[K, E]) Exec(db *DB) error {
-	return (&del[K, E]{DB: db}).Exec(d)
+func (d Delete[K, E]) Exec(txn Txn) error {
+	return (&del[K, E]{Txn: txn}).Exec(d)
 }
 
-type del[K Key, E Entry[K]] struct{ *DB }
+type del[K Key, E Entry[K]] struct{ Txn }
 
 func (d *del[K, E]) Exec(q query.Query) error {
+	opts := d.Txn.options()
 	var entries []E
-	if err := (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d.DB); err != nil {
+	if err := (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d); err != nil {
 		return err
 	}
-	prefix := typePrefix[K, E](d.DB, d.encoder)
+	prefix := typePrefix[K, E](opts)
 	var keys whereKeys[K]
 	for _, entry := range entries {
 		keys = append(keys, entry.GorpKey())
 	}
-	byteKeys, err := keys.Bytes(d.encoder)
+	byteKeys, err := keys.Bytes(opts.encoder)
 	if err != nil {
 		return err
 	}
 	for _, key := range byteKeys {
-		if err := d.kv.Delete(append(prefix, key...)); err != nil {
+		if err := d.Delete(append(prefix, key...)); err != nil {
 			return err
 		}
 	}
