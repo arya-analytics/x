@@ -33,6 +33,9 @@ type Writer interface {
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
 	Delete(key []byte) error
+}
+
+type BatchWriter interface {
 	// NewBatch returns a read-write batch. Any reads on the batch will read both from
 	// the batch and the DB. If the batch is committed it will be applied to the DB.
 	NewBatch() Batch
@@ -48,6 +51,7 @@ type Closer interface {
 // DB represents a general key-value store.
 type DB interface {
 	Writer
+	BatchWriter
 	Reader
 	Closer
 	// Stringer returns a string description of the DB. Used for logging and configuration.

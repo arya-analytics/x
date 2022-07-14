@@ -120,7 +120,7 @@ type InletCloser interface {
 }
 
 // TransformFunc is a template for a function  that transforms a value from one type to
-// another. A TransformFunc can perform IO, Network Operations, Aggregations, or any other
+// another. A TransformFunc can perform IO, Network ToBatch, Aggregations, or any other
 // type of operation.
 type TransformFunc[I, O Value] struct {
 	//	ApplyTransform is the function that performs the transformation. The user of the LinearTransform
