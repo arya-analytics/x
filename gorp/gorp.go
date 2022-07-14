@@ -30,7 +30,7 @@ type DB struct {
 
 func (db *DB) options() *options { return db.opts }
 
-func (db *DB) Begin() Txn { return txn{Batch: db.NewBatch(), opts: db.opts} }
+func (db *DB) BeginTxn() Txn { return txn{Batch: db.NewBatch(), opts: db.opts} }
 
 func (db *DB) Commit(opts ...interface{}) error { return nil }
 

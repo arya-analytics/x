@@ -42,7 +42,7 @@ var _ = Describe("Create", func() {
 	})
 	It("Should execute operations in a transaction", func() {
 		var entries []entry
-		txn := db.Begin()
+		txn := db.BeginTxn()
 		for i := 0; i < 10; i++ {
 			entries = append(entries, entry{ID: i, Data: "data"})
 		}
