@@ -10,6 +10,6 @@ type Entry[K Key] interface {
 	// GorpKey returns a unique key for the entry. gorp.DB will not raise
 	// an error if the key is a duplicate. Key must be serializable by Encoder and Decoder.
 	GorpKey() K
-	// SetOptions returns a slice of options passed to kv.KV.Set.
+	// SetOptions returns a slice of options passed to kv.Txn.Set.
 	SetOptions() []interface{}
 }
