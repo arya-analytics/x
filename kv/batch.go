@@ -6,6 +6,8 @@ package kv
 type Batch interface {
 	Writer
 	Reader
+	// Close closes the batch without committing it.
+	Close() error
 	// Commit persists the batch to the underlying DB.
 	Commit(opts ...interface{}) error
 }

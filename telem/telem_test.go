@@ -54,7 +54,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Add", func() {
+		Describe("add", func() {
 			It("Should return a new timestamp with the provided timespan added to it", func() {
 				t0 := telem.TimeStamp(0)
 				t1 := t0.Add(telem.Second)
