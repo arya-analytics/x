@@ -133,13 +133,17 @@ func (r *retrieve[K, E]) Exists(q query.Query) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries[K, E](q, &entries)
-		err := r.whereKeys(q)
-		return len(entries) == len(keys), err
+		if err := r.whereKeys(q); err != nil && err != query.NotFound {
+			return false, err
+		}
+		return len(entries) == len(keys), nil
 	}
 	entries := make([]E, 0, 1)
 	SetEntries[K, E](q, &entries)
-	err := r.filter(q)
-	return len(entries) > 0, err
+	if err := r.filter(q); err != nil && err != query.NotFound {
+		return false, err
+	}
+	return len(entries) > 0, nil
 
 }
 

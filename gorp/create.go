@@ -2,7 +2,6 @@ package gorp
 
 import (
 	"github.com/arya-analytics/x/query"
-	"reflect"
 )
 
 // |||||| CREATE ||||||
@@ -32,7 +31,6 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 		entries = GetEntries[K, E](q)
 		prefix  = typePrefix[K, E](opts)
 	)
-
 	for _, entry := range entries.All() {
 		data, err := opts.encoder.Encode(entry)
 		if err != nil {
@@ -49,16 +47,4 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 		}
 	}
 	return nil
-}
-
-func typePrefix[K Key, E Entry[K]](opts *options) []byte {
-	if opts.noTypePrefix {
-		return []byte{}
-	}
-	mName := reflect.TypeOf(*new(E)).Name()
-	b, err := opts.encoder.Encode(mName)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }

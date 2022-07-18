@@ -48,6 +48,22 @@ var _ = Describe("Retrieve", Ordered, func() {
 				By("Still retrieving as many entries as possible")
 				Expect(res).To(HaveLen(1))
 			})
+			Describe("Exists", func() {
+				It("Should return true if ALL keys have matching entries", func() {
+					exists, err := gorp.NewRetrieve[int, entry]().
+						WhereKeys(entries[0].GorpKey(), entries[1].GorpKey()).
+						Exists(db)
+					Expect(err).To(Not(HaveOccurred()))
+					Expect(exists).To(BeTrue())
+				})
+				It("Should return false if ANY key has no matching entry", func() {
+					exists, err := gorp.NewRetrieve[int, entry]().
+						WhereKeys(entries[0].GorpKey(), 444444).
+						Exists(db)
+					Expect(err).To(Not(HaveOccurred()))
+					Expect(exists).To(BeFalse())
+				})
+			})
 		})
 		Context("Single Entry", func() {
 			It("Should retrieve the entry by key", func() {
@@ -72,6 +88,22 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Exec(db)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+			})
+			Describe("Exists", func() {
+				It("Should return true if the key has a matching entry", func() {
+					exists, err := gorp.NewRetrieve[int, entry]().
+						WhereKeys(entries[0].GorpKey()).
+						Exists(db)
+					Expect(err).To(Not(HaveOccurred()))
+					Expect(exists).To(BeTrue())
+				})
+				It("Should return false if the key has no matching entry", func() {
+					exists, err := gorp.NewRetrieve[int, entry]().
+						WhereKeys(444444).
+						Exists(db)
+					Expect(err).To(Not(HaveOccurred()))
+					Expect(exists).To(BeFalse())
+				})
 			})
 		})
 	})
@@ -103,6 +135,24 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Exec(db),
 			).To(Succeed())
 			Expect(res).To(HaveLen(0))
+		})
+		Describe("Exists", func() {
+			It("Should return true if ANY entries exist", func() {
+				exists, err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID == entries[1].ID }).
+					Where(func(e *entry) bool { return e.ID == 44444 }).
+					Exists(db)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(exists).To(BeTrue())
+			})
+			It("Should return false if ALL entries do not exist", func() {
+				exists, err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID == 444444 }).
+					Where(func(e *entry) bool { return e.ID == 44444 }).
+					Exists(db)
+				Expect(err).To(Not(HaveOccurred()))
+				Expect(exists).To(BeFalse())
+			})
 		})
 	})
 })

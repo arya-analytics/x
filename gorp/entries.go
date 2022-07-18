@@ -1,6 +1,9 @@
 package gorp
 
-import "github.com/arya-analytics/x/query"
+import (
+	"github.com/arya-analytics/x/query"
+	"reflect"
+)
 
 // Key represents a unique key for a particular entry.
 type Key any
@@ -70,4 +73,16 @@ func GetEntries[K Key, E Entry[K]](q query.Query) *Entries[K, E] {
 		return GetEntries[K, E](q)
 	}
 	return re.(*Entries[K, E])
+}
+
+func typePrefix[K Key, E Entry[K]](opts *options) []byte {
+	if opts.noTypePrefix {
+		return []byte{}
+	}
+	mName := reflect.TypeOf(*new(E)).Name()
+	b, err := opts.encoder.Encode(mName)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

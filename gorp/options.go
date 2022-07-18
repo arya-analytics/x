@@ -14,12 +14,11 @@ type options struct {
 
 type Option func(o *options)
 
-func WithEncoder(encoder binary.Encoder) Option {
-	return func(opts *options) { opts.encoder = encoder }
-}
-
-func WithDecoder(decoder binary.Decoder) Option {
-	return func(opts *options) { opts.decoder = decoder }
+func WithEncoderDecoder(ecdc binary.EncoderDecoder) Option {
+	return func(opts *options) {
+		opts.decoder = ecdc
+		opts.encoder = ecdc
+	}
 }
 
 func WithoutTypePrefix() Option {
