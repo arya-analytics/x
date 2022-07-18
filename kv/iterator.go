@@ -61,8 +61,8 @@ func PrefixIter(prefix []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: prefix, UpperBound: upper(prefix)}
 }
 
-// IterRange returns IteratorOptions, that when passed to db.NewIterator, will
+// RangeIter returns IteratorOptions, that when passed to db.NewIterator, will
 // iterator through the range of keys between start and end.
-func IterRange(start, end []byte) IteratorOptions {
+func RangeIter(start, end []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: start, UpperBound: end}
 }
