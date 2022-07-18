@@ -14,14 +14,14 @@ var _ = Describe("Delete", func() {
 		kvDB kv.DB
 	)
 	BeforeEach(func() {
-		kvDB = memkv.Open()
+		kvDB = memkv.New()
 		db = gorp.Wrap(kvDB)
 	})
 	AfterEach(func() {
 		Expect(kvDB.Close()).To(Succeed())
 	})
 	Describe("WhereKeys", func() {
-		It("Should delete an entry by key in the DB", func() {
+		It("Should delete an entry by key in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().
 				Entry(&entry{ID: 1, Data: "Arya"}).
 				Exec(db)).To(Succeed())
@@ -35,7 +35,7 @@ var _ = Describe("Delete", func() {
 		})
 	})
 	Describe("Where", func() {
-		It("Should delete an entry by predicate in the DB", func() {
+		It("Should delete an entry by predicate in the db", func() {
 			Expect(gorp.NewCreate[int, entry]().
 				Entry(&entry{ID: 1, Data: "Arya"}).
 				Exec(db)).To(Succeed())

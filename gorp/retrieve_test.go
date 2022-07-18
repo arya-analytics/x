@@ -18,7 +18,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		entries []entry
 	)
 	BeforeAll(func() {
-		kv = memkv.Open()
+		kv = memkv.New()
 		db = gorp.Wrap(kv)
 		for i := 0; i < 10; i++ {
 			entries = append(entries, entry{ID: i, Data: "data"})

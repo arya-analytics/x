@@ -23,14 +23,14 @@ var _ = Describe("Create", func() {
 		kvDB kv.DB
 	)
 	BeforeEach(func() {
-		kvDB = memkv.Open()
+		kvDB = memkv.New()
 		db = gorp.Wrap(kvDB)
 	})
 	AfterEach(func() {
 		Expect(kvDB.Close()).To(Succeed())
 	})
 	Context("Single entry", func() {
-		It("Should create the entry in the DB", func() {
+		It("Should create the entry in the db", func() {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
@@ -42,7 +42,7 @@ var _ = Describe("Create", func() {
 		})
 	})
 	Describe("Multiple entries", func() {
-		It("Should create the entries in the DB", func() {
+		It("Should create the entries in the db", func() {
 			var entries []entry
 			for i := 0; i < 10; i++ {
 				entries = append(entries, entry{ID: i, Data: "data"})

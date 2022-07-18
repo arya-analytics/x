@@ -15,7 +15,7 @@ var _ = Describe("Iterator", func() {
 		ecdc binary.EncoderDecoder
 	)
 	BeforeEach(func() {
-		kv = memkv.Open()
+		kv = memkv.New()
 		ecdc = &binary.GobEncoderDecoder{}
 		val, err := ecdc.Encode(map[string]string{"key1": "value1", "key2": "value2"})
 		Expect(err).To(BeNil())

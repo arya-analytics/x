@@ -1,5 +1,5 @@
 // Package pebblekv implements a wrapper around cockroachdb's pebble storage engine that implements
-// the kv.DB interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
+// the kv.db interface. To use it, open a new pebble.DB and call Wrap() to wrap it.
 package pebblekv
 
 import (
@@ -11,26 +11,26 @@ type pebbleKV struct{ *pebble.DB }
 
 var defaultWriteOpts = pebble.NoSync
 
-// Wrap wraps a pebble.DB to satisfy the kv.DB interface.
+// Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(db *pebble.DB) kvc.DB { return &pebbleKV{DB: db} }
 
-// Get implements the kv.DB interface.
+// Get implements the kv.db interface.
 func (db pebbleKV) Get(key []byte, opts ...interface{}) ([]byte, error) {
 	return get(db.DB, key)
 }
 
-// Set implements the kv.DB interface.
+// Set implements the kv.db interface.
 func (db pebbleKV) Set(key []byte, value []byte, opts ...interface{}) error {
 	return db.DB.Set(key, value, defaultWriteOpts)
 }
 
-// Delete implements the kv.DB interface.
+// Delete implements the kv.db interface.
 func (db pebbleKV) Delete(key []byte) error { return db.DB.Delete(key, pebble.NoSync) }
 
-// Close implements the kv.DB interface.
+// Close implements the kv.db interface.
 func (db pebbleKV) Close() error { return db.DB.Close() }
 
-// NewIterator implements the kv.DB interface.
+// NewIterator implements the kv.db interface.
 func (db pebbleKV) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
 	return db.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
 }
@@ -39,7 +39,7 @@ func (db pebbleKV) NewBatch() kvc.Batch {
 	return batch{db.DB.NewIndexedBatch()}
 }
 
-// String implements the kv.DB interface.
+// String implements the kv.db interface.
 func (db pebbleKV) String() string { return "pebbleKV" }
 
 type batch struct{ *pebble.Batch }

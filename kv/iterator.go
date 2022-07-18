@@ -44,7 +44,7 @@ type Iterator interface {
 	Close() error
 }
 
-// PrefixIter returns IteratorOptions, that when passed to an DB.NewIterator, will
+// PrefixIter returns IteratorOptions, that when passed to db.NewIterator, will
 // return an Iterator that only iterates over keys with the given prefix.
 func PrefixIter(prefix []byte) IteratorOptions {
 	upper := func(b []byte) []byte {
