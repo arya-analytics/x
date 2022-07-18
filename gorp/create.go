@@ -4,8 +4,6 @@ import (
 	"github.com/arya-analytics/x/query"
 )
 
-// |||||| CREATE ||||||
-
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct{ query.Query }
 
