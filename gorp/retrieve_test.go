@@ -11,7 +11,7 @@ import (
 	"github.com/arya-analytics/x/gorp"
 )
 
-var _ = Describe("Retrieve", Ordered, func() {
+var _ = Describe("RetrieveEntity", Ordered, func() {
 	var (
 		db      *gorp.DB
 		kv      kv.DB

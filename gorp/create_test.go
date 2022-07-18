@@ -58,7 +58,7 @@ var _ = Describe("Create", func() {
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Describe("Txn", func() {
+	Describe("txn", func() {
 		It("Should execute operations within a transaction", func() {
 			var (
 				entries []entry

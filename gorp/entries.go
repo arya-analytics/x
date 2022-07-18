@@ -44,6 +44,17 @@ func (e *Entries[K, E]) Add(entry E) {
 	}
 }
 
+func (e *Entries[K, E]) Set(i int, entry E) {
+	if !e.multiple {
+		if i > 1 {
+			panic("gorp: cannot set multiple entries on a single entry query")
+		}
+		*e.entry = entry
+	} else {
+		(*e.entries)[i] = entry
+	}
+}
+
 // All returns a slice of all entries currently bound to the query.
 func (e Entries[K, E]) All() []E {
 	if e.multiple {
@@ -69,7 +80,7 @@ func SetEntries[K Key, E Entry[K]](q query.Query, e *[]E) {
 func GetEntries[K Key, E Entry[K]](q query.Query) *Entries[K, E] {
 	re, ok := q.Get(entriesOptKey)
 	if !ok {
-		SetEntry[K, E](q, new(E))
+		SetEntries[K, E](q, new([]E))
 		return GetEntries[K, E](q)
 	}
 	return re.(*Entries[K, E])
