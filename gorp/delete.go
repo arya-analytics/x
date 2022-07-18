@@ -6,7 +6,7 @@ type Delete[K Key, E Entry[K]] struct{ query.Query }
 
 func NewDelete[K Key, E Entry[K]]() Delete[K, E] { return Delete[K, E]{Query: query.New()} }
 
-func (d Delete[K, E]) Where(filter func(E) bool) Delete[K, E] {
+func (d Delete[K, E]) Where(filter func(*E) bool) Delete[K, E] {
 	addFilter[K, E](d.Query, filter)
 	return d
 }

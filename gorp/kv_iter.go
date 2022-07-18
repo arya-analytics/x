@@ -4,9 +4,10 @@ import (
 	"github.com/arya-analytics/x/kv"
 )
 
-// KVIterator provides a simple wrapper around a kv.Iterate that decodes a byte-value before returning it to the
-// caller. It provides no abstracted utilities for the iteration itself, and is focused only on maintaining a nearly
-// identical interface to the underlying iterator. To create a new KVIterator, call WrapKVIter.
+// KVIterator provides a simple wrapper around a kv.Iterate that decodes a byte-value
+// before returning it to the caller. It provides no abstracted utilities for the
+// iteration itself, and is focused only on maintaining a nearly identical interface to
+// the underlying iterator. To create a new KVIterator, call WrapKVIter.
 type KVIterator[E any] struct {
 	kv.Iterator
 	error error

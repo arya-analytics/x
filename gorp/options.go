@@ -6,10 +6,10 @@ import (
 )
 
 type options struct {
-	encoder        binary.Encoder
-	decoder        binary.Decoder
-	logger         *zap.SugaredLogger
-	omitTypePrefix bool
+	encoder      binary.Encoder
+	decoder      binary.Decoder
+	logger       *zap.SugaredLogger
+	noTypePrefix bool
 }
 
 type Option func(o *options)
@@ -23,7 +23,7 @@ func WithDecoder(decoder binary.Decoder) Option {
 }
 
 func WithoutTypePrefix() Option {
-	return func(opts *options) { opts.omitTypePrefix = true }
+	return func(opts *options) { opts.noTypePrefix = true }
 }
 
 func newOptions(opts ...Option) *options {
@@ -56,9 +56,9 @@ func defaultOptions() *options {
 	logger, _ := zap.NewProduction()
 	ed := &binary.GobEncoderDecoder{}
 	return &options{
-		logger:         logger.Sugar(),
-		encoder:        ed,
-		decoder:        ed,
-		omitTypePrefix: false,
+		logger:       logger.Sugar(),
+		encoder:      ed,
+		decoder:      ed,
+		noTypePrefix: false,
 	}
 }

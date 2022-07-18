@@ -11,7 +11,7 @@ import (
 
 // |||||| QUERY ||||||
 
-// Retrieve is a query that retrieves entriesOpt from the DB.
+// Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct{ query.Query }
 
 // NewRetrieve opens a new Retrieve query.
@@ -19,25 +19,31 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] { return Retrieve[K, E]{que
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry, use the far more performance
 // WhereKeys method instead.
-func (r Retrieve[K, E]) Where(filter func(E) bool) Retrieve[K, E] {
+func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
 	addFilter[K, E](r, filter)
 	return r
 }
 
-// WhereKeys queries the DB for entriesOpt with the provided keys. Although more targeted, this lookup is substantially
+// WhereKeys queries the DB for Entries with the provided keys. Although more targeted, this lookup is substantially
 // faster than a general Where query.
 func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
 	setWhereKeys(r, keys...)
 	return r
 }
 
-// Entries binds a slice that the Query will fill results into. Calls to Entry will override all previous calls to
+// Entries binds a slice that the Query will fill results into. Calls to Entry will override All previous calls to
 // Entries or Entry.
-func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] { setEntries[K, E](r, entries); return r }
+func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
+	SetEntries[K, E](r, entries)
+	return r
+}
 
-// Entry binds the entry that the Query will fill results into. Calls to Entry will override all previous calls to
+// Entry binds the entry that the Query will fill results into. Calls to Entry will override All previous calls to
 // Entries or Entry. If  multiple results are returned by the Query, entry will be set to the last result.
-func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] { setEntry[K, E](r, entry); return r }
+func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
+	SetEntry[K, E](r, entry)
+	return r
+}
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
 func (r Retrieve[K, E]) Exec(txn Txn) error { return (&retrieve[K, E]{Txn: txn}).Exec(r) }
@@ -50,9 +56,9 @@ func (r Retrieve[K, E]) Exists(txn Txn) (bool, error) {
 
 const filtersKey query.OptionKey = "filters"
 
-type filters[K Key, E Entry[K]] []func(E) bool
+type filters[K Key, E Entry[K]] []func(*E) bool
 
-func (f filters[K, E]) exec(entry E) bool {
+func (f filters[K, E]) exec(entry *E) bool {
 	if len(f) == 0 {
 		return true
 	}
@@ -64,7 +70,7 @@ func (f filters[K, E]) exec(entry E) bool {
 	return false
 }
 
-func addFilter[K Key, E Entry[K]](q query.Query, filter func(E) bool) {
+func addFilter[K Key, E Entry[K]](q query.Query, filter func(*E) bool) {
 	var f filters[K, E]
 	rf, ok := q.Get(filtersKey)
 	if !ok {
@@ -82,42 +88,6 @@ func getFilters[K Key, E Entry[K]](q query.Query) filters[K, E] {
 		return filters[K, E]{}
 	}
 	return rf.(filters[K, E])
-}
-
-// |||||| ENTRIES ||||||
-
-const entriesKey query.OptionKey = "entriesOpt"
-
-type entriesOpt[K Key, E Entry[K]] struct {
-	entry   *E
-	entries *[]E
-}
-
-func (e *entriesOpt[K, E]) add(entry E) {
-	if e.entry != nil {
-		*e.entry = entry
-	} else {
-		*e.entries = append(*e.entries, entry)
-	}
-}
-
-func (e *entriesOpt[K, E]) all() []E {
-	if e.entry != nil {
-		return []E{*e.entry}
-	}
-	return *e.entries
-}
-
-func setEntry[K Key, E Entry[K]](q query.Query, entry *E) {
-	q.Set(entriesKey, entriesOpt[K, E]{entry: entry})
-}
-
-func setEntries[K Key, E Entry[K]](q query.Query, e *[]E) {
-	q.Set(entriesKey, entriesOpt[K, E]{entries: e})
-}
-
-func getEntriesOpt[K Key, E Entry[K]](q query.Query) entriesOpt[K, E] {
-	return q.GetRequired(entriesKey).(entriesOpt[K, E])
 }
 
 // |||||| WHERE KEYS ||||||
@@ -162,12 +132,12 @@ func (r *retrieve[K, E]) Exec(q query.Query) error {
 func (r *retrieve[K, E]) Exists(q query.Query) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
-		setEntries[K, E](q, &entries)
+		SetEntries[K, E](q, &entries)
 		err := r.whereKeys(q)
 		return len(entries) == len(keys), err
 	}
 	entries := make([]E, 0, 1)
-	setEntries[K, E](q, &entries)
+	SetEntries[K, E](q, &entries)
 	err := r.filter(q)
 	return len(entries) > 0, err
 
@@ -178,49 +148,48 @@ func (r *retrieve[K, E]) whereKeys(q query.Query) error {
 	var (
 		keys, _ = getWhereKeys[K](q)
 		f       = getFilters[K, E](q)
-		entries = getEntriesOpt[K, E](q)
+		entries = GetEntries[K, E](q)
 		prefix  = typePrefix[K, E](opts)
 	)
 	byteKeys, err := keys.Bytes(opts.encoder)
 	if err != nil {
 		return err
 	}
+	var entry *E
 	for _, key := range byteKeys {
-		b, err := r.Get(append(prefix, key...))
-		if err == kv.NotFound {
-			if len(keys) != 0 {
-				return query.NotFound
+		b, _err := r.Get(append(prefix, key...))
+		if _err != nil {
+			if _err == kv.NotFound {
+				err = query.NotFound
+			} else {
+				err = _err
 			}
 			continue
 		}
-		if err != nil {
-			return err
-		}
-		var entry E
-		if err = opts.decoder.Decode(b, &entry); err != nil {
-			return err
+		if _err = opts.decoder.Decode(b, &entry); err != nil {
+			return _err
 		}
 		if f.exec(entry) {
-			entries.add(entry)
+			entries.Add(*entry)
 		}
 	}
-	return nil
+	return err
 }
 
 func (r *retrieve[K, E]) filter(q query.Query) error {
 	opts := r.options()
 	var (
 		f       = getFilters[K, E](q)
-		entries = getEntriesOpt[K, E](q)
+		entries = GetEntries[K, E](q)
 		iter    = r.NewIterator(kv.PrefixIter(typePrefix[K, E](opts)))
 	)
+	var entry *E
 	for iter.First(); iter.Valid(); iter.Next() {
-		var entry E
 		if err := opts.decoder.Decode(iter.Value(), &entry); err != nil {
-			return errors.Wrap(err, "failed to decode entry")
+			return errors.Wrap(err, "[gorp] - failed to decode entry")
 		}
 		if f.exec(entry) {
-			entries.add(entry)
+			entries.Add(*entry)
 		}
 	}
 	return iter.Close()

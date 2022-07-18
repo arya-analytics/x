@@ -16,13 +16,6 @@ type Txn interface {
 	options() *options
 }
 
-type txn struct {
-	kv.Batch
-	opts *options
-}
-
-func (t txn) options() *options { return t.opts }
-
 type DB struct {
 	kv.DB
 	opts *options
@@ -30,7 +23,7 @@ type DB struct {
 
 func (db *DB) options() *options { return db.opts }
 
-func (db *DB) BeginTxn() Txn { return txn{Batch: db.NewBatch(), opts: db.opts} }
+func (db *DB) BeginTxn() Txn { return txn{Batch: db.NewBatch(), db: db} }
 
 func (db *DB) Commit(opts ...interface{}) error { return nil }
 

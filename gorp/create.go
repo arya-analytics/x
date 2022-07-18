@@ -7,17 +7,17 @@ import (
 
 // |||||| CREATE ||||||
 
-// Create is a query that creates entriesOpt in the DB.
+// Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct{ query.Query }
 
 // NewCreate opens a new Create query.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] { return Create[K, E]{query.New()} }
 
-// Entries sets the entriesOpt to write to the DB.
-func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { setEntries[K, E](c, entries); return c }
+// Entries sets the Entries to write to the DB.
+func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { SetEntries[K, E](c, entries); return c }
 
 // Entry sets the entry to write to the DB.
-func (c Create[K, E]) Entry(entry *E) Create[K, E] { setEntry[K, E](c, entry); return c }
+func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K, E](c, entry); return c }
 
 // Exec executes the Query against the provided DB. It returns any errors encountered during execution.
 func (c Create[K, E]) Exec(txn Txn) error { return (&createExecutor[K, E]{Txn: txn}).Exec(c) }
@@ -27,10 +27,13 @@ func (c Create[K, E]) Exec(txn Txn) error { return (&createExecutor[K, E]{Txn: t
 type createExecutor[K Key, E Entry[K]] struct{ Txn }
 
 func (c *createExecutor[K, E]) Exec(q query.Query) error {
-	opts := c.options()
-	entries := getEntriesOpt[K, E](q)
-	prefix := typePrefix[K, E](opts)
-	for _, entry := range entries.all() {
+	var (
+		opts    = c.options()
+		entries = GetEntries[K, E](q)
+		prefix  = typePrefix[K, E](opts)
+	)
+
+	for _, entry := range entries.All() {
 		data, err := opts.encoder.Encode(entry)
 		if err != nil {
 			return err
@@ -41,8 +44,7 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 		}
 		// NOTE: We need to be careful with this operation in the future.
 		// Because we aren't copying prefix, we're modifying the underlying slice.
-		k := append(prefix, key...)
-		if err = c.Txn.Set(k, data); err != nil {
+		if err = c.Txn.Set(append(prefix, key...), data); err != nil {
 			return err
 		}
 	}
@@ -50,7 +52,7 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 }
 
 func typePrefix[K Key, E Entry[K]](opts *options) []byte {
-	if opts.omitTypePrefix {
+	if opts.noTypePrefix {
 		return []byte{}
 	}
 	mName := reflect.TypeOf(*new(E)).Name()

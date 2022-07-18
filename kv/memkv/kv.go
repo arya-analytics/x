@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 )
 
-// Open opens a new in-memory key-value store implementing the kv.Txn interface.
+// Open opens a new in-memory key-value store implementing the kv.DB interface.
 func Open() kv.DB {
 	db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
 	if err != nil {
