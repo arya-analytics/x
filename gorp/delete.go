@@ -1,6 +1,9 @@
 package gorp
 
-import "github.com/arya-analytics/x/query"
+import (
+	"github.com/arya-analytics/x/kv"
+	"github.com/arya-analytics/x/query"
+)
 
 type Delete[K Key, E Entry[K]] struct{ query.Query }
 
@@ -25,7 +28,8 @@ type del[K Key, E Entry[K]] struct{ Txn }
 func (d *del[K, E]) Exec(q query.Query) error {
 	opts := d.Txn.options()
 	var entries []E
-	if err := (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d); err != nil {
+	err := (Retrieve[K, E]{Query: q}).Entries(&entries).Exec(d)
+	if err != nil && err != query.NotFound {
 		return err
 	}
 	prefix := typePrefix[K, E](opts)
@@ -38,7 +42,7 @@ func (d *del[K, E]) Exec(q query.Query) error {
 		return err
 	}
 	for _, key := range byteKeys {
-		if err := d.Delete(append(prefix, key...)); err != nil {
+		if err := d.Delete(append(prefix, key...)); err != nil && err != kv.NotFound {
 			return err
 		}
 	}
