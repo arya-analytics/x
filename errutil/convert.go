@@ -13,7 +13,7 @@ type Convert func(error) (error, bool)
 // For example:
 // 		err := errors.Requests("unconverted error")
 // 		cc := errutil.ConvertChain{Convert1, Convert2, DefaultConvert}
-// 		cErr := cc.Exec()
+// 		cErr := cc.exec()
 // 		fmt.Printf(cErr)
 // Output:
 // 		converted error.

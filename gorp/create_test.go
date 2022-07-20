@@ -19,24 +19,64 @@ func (m entry) SetOptions() []interface{} { return nil }
 
 var _ = Describe("Create", func() {
 	var (
-		db *gorp.DB
-		kv kv.KV
+		db   *gorp.DB
+		kvDB kv.DB
 	)
 	BeforeEach(func() {
-		kv = memkv.Open()
-		db = gorp.Wrap(kv)
+		kvDB = memkv.New()
+		db = gorp.Wrap(kvDB)
 	})
 	AfterEach(func() {
-		Expect(kv.Close()).To(Succeed())
+		Expect(kvDB.Close()).To(Succeed())
 	})
-	It("Should create the entry to storage", func() {
-		var entries []entry
-		for i := 0; i < 10; i++ {
-			entries = append(entries, entry{ID: i, Data: "data"})
-		}
-		Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(db)).To(Succeed())
-		var res []entry
-		Expect(gorp.NewRetrieve[int, entry]().Entries(&res).Exec(db)).To(Succeed())
-		Expect(res).To(Equal(entries))
+	Context("Single entry", func() {
+		It("Should create the entry in the db", func() {
+			e := &entry{
+				ID:   42,
+				Data: "The answer to life, the universe, and everything",
+			}
+			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(db)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(42).Exists(db)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
+	Describe("Multiple entries", func() {
+		It("Should create the entries in the db", func() {
+			var entries []entry
+			for i := 0; i < 10; i++ {
+				entries = append(entries, entry{ID: i, Data: "data"})
+			}
+			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(db)).To(Succeed())
+			var keys []int
+			for _, e := range entries {
+				keys = append(keys, e.ID)
+			}
+			exists, err := gorp.NewRetrieve[int, entry]().
+				WhereKeys(keys...).Exists(db)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+	})
+	Describe("txn", func() {
+		It("Should execute operations within a transaction", func() {
+			var (
+				entries []entry
+				keys    []int
+			)
+			txn := db.BeginTxn()
+			for i := 0; i < 10; i++ {
+				entries = append(entries, entry{ID: i, Data: "data"})
+				keys = append(keys, i)
+			}
+			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(txn)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db)
+			Expect(err).To(BeNil())
+			Expect(exists).To(BeFalse())
+			Expect(txn.Commit()).To(Succeed())
+			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db)
+			Expect(err).To(BeNil())
+			Expect(exists).To(BeTrue())
+		})
 	})
 })

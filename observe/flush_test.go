@@ -20,7 +20,7 @@ func (f simpleFlusher) Flush(w io.Writer) error {
 var _ = Describe("Flush", func() {
 	It("Should flush the observable contents", func() {
 		o := observe.New[simpleFlusher]()
-		kv := memkv.Open()
+		kv := memkv.New()
 		flush := &observe.FlushSubscriber[simpleFlusher]{
 			Key:         []byte("key"),
 			Store:       kv,
