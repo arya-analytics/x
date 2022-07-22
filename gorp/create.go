@@ -40,7 +40,8 @@ func (c *createExecutor[K, E]) Exec(q query.Query) error {
 		}
 		// NOTE: We need to be careful with this operation in the future.
 		// Because we aren't copying prefix, we're modifying the underlying slice.
-		if err = c.Txn.Set(append(prefix, key...), data, entry.SetOptions()); err != nil {
+		if err = c.Txn.Set(append(prefix, key...), data,
+			entry.SetOptions()...); err != nil {
 			return err
 		}
 	}

@@ -16,7 +16,7 @@ type Metrics struct {
 }
 
 func newMetrics(exp alamos.Experiment) Metrics {
-	subExp := alamos.Sub(exp, "kfs.FS")
+	subExp := alamos.Sub(exp, "kfs.fs")
 	return Metrics{
 		Acquire: alamos.NewGaugeDuration(subExp, alamos.Debug, "Acquire"),
 		Release: alamos.NewGaugeDuration(subExp, alamos.Debug, "Release"),

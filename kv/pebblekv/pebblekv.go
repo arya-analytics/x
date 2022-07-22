@@ -9,7 +9,7 @@ import (
 
 type pebbleKV struct{ *pebble.DB }
 
-var defaultWriteOpts = pebble.NoSync
+var defaultWriteOpts = pebble.Sync
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
 func Wrap(db *pebble.DB) kvc.DB { return &pebbleKV{DB: db} }

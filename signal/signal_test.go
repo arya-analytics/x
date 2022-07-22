@@ -48,4 +48,14 @@ var _ = Describe("Context", func() {
 		})
 		Expect(c).To(Equal(0))
 	})
+	It("Should close the Stopped channel when all goroutines exit", func() {
+		sig, cancel := signal.TODO()
+		defer cancel()
+		sig.Go(func(ctx signal.Context) error {
+			cancel()
+			return nil
+		})
+		Expect(sig.Wait()).ToNot(HaveOccurred())
+		Expect(sig.Stopped()).To(BeClosed())
+	})
 })

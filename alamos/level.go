@@ -35,21 +35,21 @@ func (e LevelFilterSet) String() string {
 }
 
 type LevelFilterThreshold struct {
-	Above bool
+	Below bool
 	Level Level
 }
 
-func (l *LevelFilterThreshold) Test(l2 Level) bool {
-	if l.Above {
-		return l2 > l.Level
+func (l LevelFilterThreshold) Test(l2 Level) bool {
+	if l.Below {
+		return l2 <= l.Level
 	}
-	return l2 < l.Level
+	return l2 >= l.Level
 }
 
-func (l *LevelFilterThreshold) String() string {
+func (l LevelFilterThreshold) String() string {
 	str := "LevelFilterThreshold{"
-	if l.Above {
-		str += "Above "
+	if l.Below {
+		str += "Below "
 	} else {
 		str += "Below "
 	}
